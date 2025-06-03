@@ -62,5 +62,5 @@ def count_data_points(file_path):
 # Example usage - replace with your actual file path
 if __name__ == "__main__":
     # Test with one of your files
-    test_file = 'voltammetry-files/aladec1.txt'  # Change this to your actual file path
+    test_file = '../voltammetry-files/aladec1.txt'  # Change this to your actual file path
     count_data_points(test_file)
