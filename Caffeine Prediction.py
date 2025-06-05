@@ -102,6 +102,9 @@ def plot_data(i, file_path, df):
         response -= V_responses[i]
     # response += np.mean(V_responses)
 
+    print(df)
+    exit()
+
     y_smoothed = moving_average(response, window_size=SMOOTHING_WINDOW_SIZE)
     x_smoothed = voltage[len(voltage) - len(y_smoothed):]
 
@@ -246,6 +249,9 @@ if __name__ == '__main__':
 
     for i, file_path in enumerate(file_paths):
         df = read_data(file_path)
+
+        print(df)
+        exit()
         if df is not None:
             cga_normalization(df)
 

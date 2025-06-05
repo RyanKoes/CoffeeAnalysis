@@ -19,24 +19,24 @@ PEAK_DETECTION_MAX = 1.5  # Maximum voltage for peak detection
 
 # Training data files
 file_paths = [
-    'voltammetry-files/aladec1.txt',
-    'voltammetry-files/aladec2.txt',
-    'voltammetry-files/aladec3edge.txt',
-    'voltammetry-files/alaD2p1.txt',
-    'voltammetry-files/alaD2p2.txt',
-    'voltammetry-files/alaD2p3.txt',
-    'voltammetry-files/alaD4p1.txt',
-    'voltammetry-files/alaD4p2.txt',
-    'voltammetry-files/alaD4p3.txt',
-    'voltammetry-files/alaD6p1.txt',
-    'voltammetry-files/alaD6p2.txt',
-    'voltammetry-files/alaD6p3.txt',
-    'voltammetry-files/alaD8p1.txt',
-    'voltammetry-files/alaD8p2.txt',
-    'voltammetry-files/alaD8p3.txt',
-    'voltammetry-files/alareg1.txt',
-    'voltammetry-files/alareg2.txt',
-    'voltammetry-files/alareg3edge.txt'
+ #   'voltammetry-files/aladec1.txt',
+    # 'voltammetry-files/aladec2.txt',
+    # 'voltammetry-files/aladec3edge.txt',
+#    'voltammetry-files/alaD2p1.txt',
+    # 'voltammetry-files/alaD2p2.txt',
+    # 'voltammetry-files/alaD2p3.txt',
+    # 'voltammetry-files/alaD4p1.txt',
+    # 'voltammetry-files/alaD4p2.txt',
+     'voltammetry-files/alaD4p3.txt',
+    # 'voltammetry-files/alaD6p1.txt',
+    # 'voltammetry-files/alaD6p2.txt',
+    # 'voltammetry-files/alaD6p3.txt',
+    # 'voltammetry-files/alaD8p1.txt',
+    # 'voltammetry-files/alaD8p2.txt',
+    # 'voltammetry-files/alaD8p3.txt',
+#    'voltammetry-files/alareg1.txt',
+    # 'voltammetry-files/alareg2.txt',
+    # 'voltammetry-files/alareg3edge.txt'
 ]
 
 # Coffee names for labeling
@@ -237,6 +237,9 @@ def generate_dynamic_reference_line(voltage, response):
     # Generate reference line for all voltage points
     reference_y = np.array([calculate_line_y(v, v_start, r_start, v_end, r_end) for v in voltage])
 
+
+    print(reference_y)
+
     return reference_y, (v_start, r_start), (v_end, r_end)
 
 
@@ -252,20 +255,37 @@ def find_peak_response(voltage, response):
     # Subtract reference line from response
     difference = response - reference_y
 
-    # Find the peak in the specified voltage range
-    valid_indices = (voltage >= PEAK_DETECTION_MIN) & (voltage <= PEAK_DETECTION_MAX)
-    filtered_voltage = voltage[valid_indices]
-    filtered_difference = difference[valid_indices]
+    # Find the peak in the specified voltage range -- THIS IS OXIDATION + REDUCTION
+    #valid_indices = (voltage >= PEAK_DETECTION_MIN) & (voltage <= PEAK_DETECTION_MAX)
+    #filtered_voltage = voltage[valid_indices]
+
+    #print(filtered_voltage)
+
+    x_start = np.where(voltage >= PEAK_DETECTION_MIN)[0][0]
+    x_end = x_start + np.where(voltage[x_start:] > PEAK_DETECTION_MAX)[0][0]
+
+    print(f"Start index: {x_start}, End index: {x_end}")
+
+    filtered_voltage = voltage[x_start:x_end]
+    filtered_difference = difference[x_start:x_end]
+    
 
     if len(filtered_difference) > 0:
         # Find the index of maximum absolute difference
         max_diff_index = np.argmax(np.abs(filtered_difference))
         peak_voltage = filtered_voltage[max_diff_index]
 
+        print(f"Peak voltage index: {max_diff_index}, Peak voltage: {peak_voltage}")
+        print(f"Difference at peak: {filtered_difference[max_diff_index]}")
+        print(f"Min of filtered_difference: {min(filtered_difference)}")
+
+
         # Find the corresponding index in the original arrays
         original_index = np.where(voltage == peak_voltage)[0][0]
         original_response = response[original_index]
 
+
+        print(f'Peak voltage: {peak_voltage}')
         return peak_voltage, original_response, filtered_difference[max_diff_index], reference_y, start_point, end_point
     else:
         return None, None, None, reference_y, start_point, end_point
@@ -318,7 +338,7 @@ Plots the data and finds peak responses
 '''
 
 
-def plot_data(i, file_path, df, is_prediction=False, color_index=0):
+def plot_data(i, file_path, df, is_prediction=False, color_index=0, ax=None):
     voltage = df['Applied Voltage'].values
     response = df['Detected Response'].values  # Response is already normalized
 
@@ -341,21 +361,37 @@ def plot_data(i, file_path, df, is_prediction=False, color_index=0):
             print(f"File: {file_path}, Peak Response: {peak_response:.3f} uA at Voltage: {peak_voltage:.3f}")
             responses.append(peak_response)
 
+        maxx = len(x_smoothed) // 2
+
         # Plot the curve and the peak point
-        plt.plot(x_smoothed[0: len(x_smoothed) // 2], y_smoothed[0: len(y_smoothed) // 2],
+        ax[0].plot(x_smoothed[:maxx], reference_y[:maxx], color='blue', linestyle='-', alpha=0.75)
+
+        #plt.plot(x_smoothed[0: len(x_smoothed) // 2], y_smoothed[0: len(y_smoothed) // 2],
+        #         label=file_path, color=color, alpha=0.8)
+        ax[0].plot(x_smoothed[:maxx], y_smoothed[:maxx],
                  label=file_path, color=color, alpha=0.8)
-        plt.scatter(peak_voltage, peak_response, color=color,
+        
+
+        # plot difference
+        ax[1].plot(x_smoothed[:maxx], y_smoothed[:maxx] - reference_y[:maxx], color='black')
+        for xval in [start_point[0], end_point[0], peak_voltage]:
+            ax[1].axvline(x=xval, color='red', linestyle='--', alpha=0.5)
+        
+        ax[0].scatter(peak_voltage, peak_response, color=color,
                     label=f"{'Prediction' if is_prediction else 'Peak Response'} {file_path}", zorder=3)
 
         # Plot the dynamic reference line and its endpoints
         if (not is_prediction and i < 3) or (
                 is_prediction and color_index < 2):  # Only plot reference lines for a few curves to avoid clutter
             first_half_idx = len(x_smoothed) // 2
-            plt.scatter([start_point[0], end_point[0]], [start_point[1], end_point[1]], color=color, marker='x',
+            ax[0].scatter([start_point[0], end_point[0]], [start_point[1], end_point[1]], color=color, marker='x',
                         alpha=0.5)
 
     if is_prediction and peak_response is not None:
         prediction_responses.append(peak_response)
+
+    #plt.show()
+    #exit()
 
     return (x_smoothed[0: len(x_smoothed) // 2], y_smoothed[0: len(y_smoothed) // 2])
 
@@ -632,7 +668,8 @@ if __name__ == '__main__':
     # Example of how to add prediction files (can be modified by user)
     # Uncomment and modify these lines to add your prediction files
 
-    plt.figure(figsize=(10, 6))
+    #plt.figure(figsize=(10, 6))
+    fig,axs = plt.subplots(2,1,sharex=True, figsize=(10, 6))
 
     # First pass: Read all data and perform CGA normalization before plotting
     # Process training data for normalization
@@ -642,31 +679,48 @@ if __name__ == '__main__':
             df_normalized, _ = cga_normalization(df)
             normalized_training_dfs.append((i, file_path, df_normalized))
 
-    # Process prediction data for normalization
-    for i, file_path in enumerate(predict_file_paths):
-        df = read_data(file_path)
-        if df is not None:
-            df_normalized, _ = cga_normalization(df, is_prediction=True)
-            normalized_prediction_dfs.append((i, file_path, df_normalized))
+    if 0:
+        # Process prediction data for normalization
+        for i, file_path in enumerate(predict_file_paths):
+            df = read_data(file_path)
+            if df is not None:
+                df_normalized, _ = cga_normalization(df, is_prediction=True)
+                normalized_prediction_dfs.append((i, file_path, df_normalized))
 
     # Second pass: Plot each normalized curve and find the peak response for training data
     smoothed_responses = []
     for i, file_path, df_normalized in normalized_training_dfs:
-        smoothed_responses.append(plot_data(i, file_path, df_normalized))
+        smoothed_responses.append(plot_data(i, file_path, df_normalized, ax=axs))
 
-    # Plot each normalized curve and find the peak response for prediction data
-    prediction_smoothed = []
-    for i, file_path, df_normalized in normalized_prediction_dfs:
-        group_idx = i // 3  # Determine which group this file belongs to
-        prediction_smoothed.append(plot_data(i, file_path, df_normalized, is_prediction=True, color_index=group_idx))
+        
+
+    if 0:
+        # Plot each normalized curve and find the peak response for prediction data
+        prediction_smoothed = []
+        for i, file_path, df_normalized in normalized_prediction_dfs:
+            group_idx = i // 3  # Determine which group this file belongs to
+            prediction_smoothed.append(plot_data(i, file_path, df_normalized, is_prediction=True, color_index=group_idx))
+
+
+
 
     plt.xlabel('Applied Voltage')
-    plt.ylabel('Response μA')
-    plt.title('Cyclic Voltammetry - Dynamic Baseline Peak Detection')
+    axs[0].set_title('CV Curve')
+    axs[1].set_title('Difference from reference line')
+    #plt.ylabel('Response μA')
+    #plt.title('Cyclic Voltammetry - Dynamic Baseline Peak Detection')
     plt.legend(bbox_to_anchor=(1, 1))
-    plt.grid(True)
-    plt.ylim(-20, 200)
+    axs[0].grid(True)
+    axs[1].grid(True)
+    axs[0].set_ylim(-20, 200)
+
+    
+
+
+
     plt.show()
+
+    exit()
 
     # Process training data
     averages, std_devs = process_chunks(responses)
