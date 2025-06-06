@@ -240,7 +240,8 @@ def process_chunks(data):
 
 
 if __name__ == '__main__':
-    plt.figure(figsize=(10, 6))
+    # Save the first plot as a PNG file
+    plt.figure(figsize=(12, 8), dpi=600)
 
     smoothed_responses = []
 
@@ -255,17 +256,27 @@ if __name__ == '__main__':
         if df is not None:
             smoothed_responses.append(plot_data(i, file_path, df))
 
-    plt.xlabel('Applied Voltage')
-    plt.ylabel('Response uA')
-    plt.title('Cyclic Voltammetry - Normalized')
+    plt.xlabel('Applied Voltage', fontsize=18)
+    plt.ylabel('Normalized Response (uA)', fontsize=18)
+
+    # Increase font size of numbers on x and y axes
+    plt.tick_params(axis='x', labelsize=16)
+    plt.tick_params(axis='y', labelsize=16)
 
     # Create legend with only unique coffee groups
     if legend_handles:
         lines, labels = zip(*legend_handles)
-        plt.legend(lines, labels, bbox_to_anchor=(1, 1))
+        plt.legend(lines, labels, loc='lower center', bbox_to_anchor=(0.5, -0.4), fontsize=16, ncol=3)
 
     plt.grid(True)
     plt.ylim(-20, 200)
+
+    # Adjust layout to ensure the legend fits
+    plt.tight_layout()
+
+    # Save the plot as a PNG file
+    plt.savefig('first_plot.png', format='png')
+
     plt.show()
 
     averages, std_devs = process_chunks(responses)

@@ -140,9 +140,9 @@ predict_names = ["FRC Decaf Colombian, med roast IH",
 # Add your actual caffeine values here (in ppm) - one value per group of 3 files
 # These should correspond to the predict_names groups
 actual_caffeine_ppm = [
-    75,   # FRC Decaf Colombian
-    60,   # FRC Sugarcame Decaf Colombian
-    40,   # FRC Swiss Water Decaf Colombian
+    75,  # FRC Decaf Colombian
+    60,  # FRC Sugarcame Decaf Colombian
+    40,  # FRC Swiss Water Decaf Colombian
     820,  # FRC Mexican medium roast
     830,  # FRC Sumatra medium roast
     770,  # FRC Colombia medium roast
@@ -211,15 +211,20 @@ Find the nearest point in the data for a specific voltage
 def find_nearest_point(voltage_array, response_array, target_voltage):
     # Find the index of the value closest to the target voltage in the up curve
     up_curve_indices = np.diff(voltage_array, prepend=voltage_array[0]) > 0
+    print(
+        f"    Up curve filtering: {np.sum(up_curve_indices)} data points found from {len(voltage_array)} total points")
+
     if not any(up_curve_indices):
         # If no up curve points are found, use all points
         idx = (np.abs(voltage_array - target_voltage)).argmin()
+        print("    No up curve points found, using all data points for nearest point search")
     else:
         # Only consider points in the up curve
         filtered_voltage = voltage_array[up_curve_indices]
         idx = (np.abs(filtered_voltage - target_voltage)).argmin()
         # Convert back to original array index
         idx = np.where(up_curve_indices)[0][idx]
+        print(f"    Nearest point search completed on {len(filtered_voltage)} up curve points")
 
     return voltage_array[idx], response_array[idx]
 
@@ -230,12 +235,14 @@ Generate the reference line by finding actual data points at specific voltages
 
 
 def generate_dynamic_reference_line(voltage, response):
+    print(f"  Generating reference line from {len(voltage)} voltage points")
     # Find points closest to the reference voltages
     v_start, r_start = find_nearest_point(voltage, response, REFERENCE_START_V)
     v_end, r_end = find_nearest_point(voltage, response, REFERENCE_END_V)
 
     # Generate reference line for all voltage points
     reference_y = np.array([calculate_line_y(v, v_start, r_start, v_end, r_end) for v in voltage])
+    print(f"  Reference line generated for {len(reference_y)} points")
 
     return reference_y, (v_start, r_start), (v_end, r_end)
 
@@ -246,16 +253,19 @@ Find the voltage with the highest response after subtracting the reference line
 
 
 def find_peak_response(voltage, response):
+    print(f"  Peak detection starting with {len(voltage)} data points")
     # Generate dynamic reference line based on the curve's actual points
     reference_y, start_point, end_point = generate_dynamic_reference_line(voltage, response)
 
     # Subtract reference line from response
     difference = response - reference_y
+    print(f"  Calculated difference array with {len(difference)} points")
 
     # Find the peak in the specified voltage range
     valid_indices = (voltage >= PEAK_DETECTION_MIN) & (voltage <= PEAK_DETECTION_MAX)
     filtered_voltage = voltage[valid_indices]
     filtered_difference = difference[valid_indices]
+    print(f"  Peak detection voltage range filtering: {len(filtered_voltage)} points from {len(voltage)} total points")
 
     if len(filtered_difference) > 0:
         # Find the index of maximum absolute difference
@@ -265,9 +275,11 @@ def find_peak_response(voltage, response):
         # Find the corresponding index in the original arrays
         original_index = np.where(voltage == peak_voltage)[0][0]
         original_response = response[original_index]
+        print(f"  Peak found at index {original_index} in original array")
 
         return peak_voltage, original_response, filtered_difference[max_diff_index], reference_y, start_point, end_point
     else:
+        print("  No valid points found in peak detection range")
         return None, None, None, reference_y, start_point, end_point
 
 
@@ -279,7 +291,14 @@ Reads the data from the specified file path and returns a DataFrame.
 def read_data(file_path):
     try:
         df = pd.read_csv(file_path, delimiter=',', header=None, names=['Time', 'Applied Voltage', 'Detected Response'])
+        original_length = len(df)
+        print(f"Read {original_length} data points from {file_path}")
+
         df = df[(df['Applied Voltage'] >= 0.0)]
+        filtered_length = len(df)
+        print(
+            f"After voltage filtering (>= 0.0V): {filtered_length} data points remaining (removed {original_length - filtered_length} points)")
+
         return df
     except Exception as e:
         print(f"Error reading {file_path}: {e}")
@@ -292,11 +311,16 @@ Performs CGA normalization and returns normalized response values
 
 
 def cga_normalization(df, is_prediction=False):
+    print(f"CGA normalization starting with {len(df)} data points")
     voltage = df['Applied Voltage'].values
     response = df['Detected Response'].values
+
     # Find the response between CGA_MIN_VOLTAGE and CGA_MAX_VOLTAGE in the up curve
     up_curve_indices = (voltage >= CGA_MIN_VOLTAGE) & (voltage <= CGA_MAX_VOLTAGE) & (
             np.diff(voltage, prepend=voltage[0]) > 0)
+    cga_points = np.sum(up_curve_indices)
+    print(f"CGA normalization range ({CGA_MIN_VOLTAGE}V to {CGA_MAX_VOLTAGE}V): {cga_points} points found")
+
     # Average response between CGA_MIN_VOLTAGE and CGA_MAX_VOLTAGE in the up curve
     response_at_1v = np.mean(response[up_curve_indices])
 
@@ -310,6 +334,7 @@ def cga_normalization(df, is_prediction=False):
     if CGA_NORMALIZE:
         df_normalized['Detected Response'] = df['Detected Response'] - response_at_1v
 
+    print(f"CGA normalization completed, output dataframe has {len(df_normalized)} data points")
     return df_normalized, response_at_1v
 
 
@@ -319,11 +344,16 @@ Plots the data and finds peak responses
 
 
 def plot_data(i, file_path, df, is_prediction=False, color_index=0):
+    print(f"\nPlotting data for {file_path}:")
+    print(f"Input dataframe has {len(df)} data points")
+
     voltage = df['Applied Voltage'].values
     response = df['Detected Response'].values  # Response is already normalized
 
     y_smoothed = moving_average(response, window_size=SMOOTHING_WINDOW_SIZE)
     x_smoothed = voltage[len(voltage) - len(y_smoothed):]
+    print(
+        f"After moving average smoothing (window={SMOOTHING_WINDOW_SIZE}): {len(y_smoothed)} points from {len(response)} original points")
 
     # Find the peak response after subtracting the dynamic reference line
     result = find_peak_response(x_smoothed, y_smoothed)
@@ -342,15 +372,18 @@ def plot_data(i, file_path, df, is_prediction=False, color_index=0):
             responses.append(peak_response)
 
         # Plot the curve and the peak point
-        plt.plot(x_smoothed[0: len(x_smoothed) // 2], y_smoothed[0: len(y_smoothed) // 2],
-                 label=file_path, color=color, alpha=0.8)
+        first_half_points = len(x_smoothed) // 2
+        x_plot = x_smoothed[0:first_half_points]
+        y_plot = y_smoothed[0:first_half_points]
+        print(f"Plotting first half of data: {len(x_plot)} points")
+
+        plt.plot(x_plot, y_plot, label=file_path, color=color, alpha=0.8)
         plt.scatter(peak_voltage, peak_response, color=color,
                     label=f"{'Prediction' if is_prediction else 'Peak Response'} {file_path}", zorder=3)
 
         # Plot the dynamic reference line and its endpoints
         if (not is_prediction and i < 3) or (
                 is_prediction and color_index < 2):  # Only plot reference lines for a few curves to avoid clutter
-            first_half_idx = len(x_smoothed) // 2
             plt.scatter([start_point[0], end_point[0]], [start_point[1], end_point[1]], color=color, marker='x',
                         alpha=0.5)
 
@@ -366,7 +399,9 @@ Calculates the moving average of a given array y with a specified window size.
 
 
 def moving_average(y, window_size=5):
-    return np.convolve(y, np.ones(window_size) / window_size, mode='valid')
+    result = np.convolve(y, np.ones(window_size) / window_size, mode='valid')
+    print(f"Moving average: input {len(y)} points, output {len(result)} points (window size={window_size})")
+    return result
 
 
 '''
@@ -375,6 +410,9 @@ Regression model
 
 
 def train_and_evaluate_model(averages, ground_truth):
+    print(
+        f"\nTraining regression model with {len(averages)} average response values and {len(ground_truth)} ground truth values")
+
     # Reshape the input for sklearn (expects 2D array for features)
     X = np.array(averages).reshape(-1, 1)
     y = np.array(ground_truth)
@@ -406,6 +444,7 @@ Processes the data in chunks of 3 and calculates the averages and standard devia
 
 
 def process_chunks(data):
+    print(f"\nProcessing {len(data)} response values in chunks of 3")
     averages = []
     std_devs = []
 
@@ -418,6 +457,7 @@ def process_chunks(data):
             averages.append(avg)
             std_devs.append(std)
 
+    print(f"Created {len(averages)} averaged data points from {len(data)} individual responses")
     return averages, std_devs
 
 
@@ -427,6 +467,7 @@ Processes prediction data in groups of 3 files and makes caffeine content predic
 
 
 def process_predictions(model, prediction_data):
+    print(f"\nProcessing {len(prediction_data)} prediction responses in groups of 3")
     prediction_averages = []
     prediction_std_devs = []
 
@@ -439,10 +480,14 @@ def process_predictions(model, prediction_data):
             prediction_averages.append(avg)
             prediction_std_devs.append(std)
 
+    print(
+        f"Created {len(prediction_averages)} averaged prediction points from {len(prediction_data)} individual responses")
+
     # Make predictions using the trained model
     if prediction_averages:
         X_pred = np.array(prediction_averages).reshape(-1, 1)
         predicted_caffeine = model.predict(X_pred)
+        print(f"Generated {len(predicted_caffeine)} caffeine predictions")
 
         # Print prediction results
         print("\nPrediction Results:")
@@ -470,6 +515,9 @@ def evaluate_prediction_accuracy(predicted_values, actual_values, sample_names):
         print(
             f"Warning: Number of predictions ({len(predicted_values)}) doesn't match actual values ({len(actual_values)})")
         return
+
+    print(
+        f"\nEvaluating prediction accuracy with {len(predicted_values)} predictions vs {len(actual_values)} actual values")
 
     print("\n" + "=" * 80)
     print("PREDICTION ACCURACY EVALUATION")
@@ -517,11 +565,14 @@ def plot_prediction_accuracy(predicted_values, actual_values, sample_names, pred
     if len(predicted_values) == 0 or len(actual_values) == 0:
         return
 
+    print(f"\nCreating prediction accuracy plots with {len(predicted_values)} predictions")
+
     # Ensure all arrays have the same length
     min_length = min(len(predicted_values), len(actual_values), len(sample_names))
     predicted_values = predicted_values[:min_length]
     actual_values = actual_values[:min_length]
     sample_names = sample_names[:min_length]
+    print(f"Plot data trimmed to {min_length} points for consistency")
 
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
 
