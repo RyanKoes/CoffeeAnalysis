@@ -259,13 +259,24 @@ def find_peak_response(voltage, response):
 
     # Subtract reference line from response
     difference = response - reference_y
-    print(f"  Calculated difference array with {len(difference)} points")
+    # print(f"  Calculated difference array with {len(difference)} points")
 
-    # Find the peak in the specified voltage range
-    valid_indices = (voltage >= PEAK_DETECTION_MIN) & (voltage <= PEAK_DETECTION_MAX)
-    filtered_voltage = voltage[valid_indices]
-    filtered_difference = difference[valid_indices]
-    print(f"  Peak detection voltage range filtering: {len(filtered_voltage)} points from {len(voltage)} total points")
+    # # Find the peak in the specified voltage range
+    # valid_indices = (voltage >= PEAK_DETECTION_MIN) & (voltage <= PEAK_DETECTION_MAX)
+    # filtered_voltage = voltage[valid_indices]
+    # filtered_difference = difference[valid_indices]
+    # print(f"  Peak detection voltage range filtering: {len(filtered_voltage)} points from {len(voltage)} total points")
+
+
+
+    x_start = np.where(voltage >= PEAK_DETECTION_MIN)[0][0]
+    x_end = x_start + np.where(voltage[x_start:] > PEAK_DETECTION_MAX)[0][0]
+
+    print(f"Start index: {x_start}, End index: {x_end}")
+
+    filtered_voltage = voltage[x_start:x_end]
+    filtered_difference = difference[x_start:x_end]
+
 
     if len(filtered_difference) > 0:
         # Find the index of maximum absolute difference

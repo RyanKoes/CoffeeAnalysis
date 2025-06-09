@@ -1,6 +1,19 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mplt
+
+import numpy as np
+from scipy.integrate import simps
+
+
+import tabulate
 from pathlib import Path
+
+
+
+PEAK_DETECTION_MIN = 1.15  # Minimum voltage for peak detection
+PEAK_DETECTION_MAX = 1.5  # Maximum voltage for peak detection
+
 
 def getData(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA'):
     """ Returns:
@@ -38,14 +51,14 @@ def getData(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA'):
     # Construct the URL to export the *first* sheet as CSV.
     url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv'
 
-    
+
     df = pd.read_csv(url)
 
     # keep columns
     df = df[['Name ', 'Brew date ', '(ppm) Caff Avg', '(ppm) CGA Avg', 'Voltammetry data 1', 'data 2', 'data 3']]
 
     # rename columns
-    df.columns = ['Name', 'Brew date', 'HPLC_Caff', 'HPLC_CGA', 'cv_data1', 'cv_data 2', 'cv_data 3']
+    df.columns = ['Name', 'Brew date', 'HPLC_Caff', 'HPLC_CGA', 'cv_data1', 'cv_data2', 'cv_data3']
 
     # drop NA rows
     df = df.dropna()
@@ -58,9 +71,10 @@ def read_cv_data(filename, datadir = Path('voltammetry-files')):
     """
     df = pd.read_csv(datadir / filename, sep=',', header=None, names=['t', 'v', 'i'], index_col='t')
 
-    print(f"Reading {filename} .")
-    # ignore first 45 seconds as preconditioning
-    df = df.loc[45:]
+    # 45 seconds are preconditioning
+    # then it takes a second for the current to stabilize
+    # ignore first 46 seconds as preconditioning
+    df = df.loc[46:]
 
     #find max applied voltage
     max_voltage = df['v'].max()
@@ -71,40 +85,151 @@ def read_cv_data(filename, datadir = Path('voltammetry-files')):
     # keep only data before max
     df = df.loc[:max_index]
 
+    df['v_ma'] = df['v'].rolling(window=10, center=True).mean()
+    df['i_ma'] = df['i'].rolling(window=10, center=True).mean()
+
+    # remove rows where v_avg is NaN
+    df = df.dropna(subset=['v_ma', 'i_ma'])
+
+    # reindex to voltage
+    df = df.set_index('v_ma')
+    df.drop(columns=['v', 'i'], inplace=True)
+
+
     return df
 
 
-def plot_cv_curve(df, title=None):
+def plot_cv_curve(df, ax, label=None):
     """ Plots the CV curve from a DataFrame.
     """
-    
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(df['v'], df['i'], label='CV Curve')
-    plt.title(title if title else 'CV Curve')
-    plt.xlabel('Voltage (V)')
-    plt.ylabel('Current (A)')
-    plt.grid()
-    plt.legend()
-    plt.show()
+    #plt.figure(figsize=(10, 6))
+
+    ax.plot(df.index, df['i_ma'],
+             label=label,  lw=2, alpha=0.7)
+
+    # plt.axvspan(PEAK_DETECTION_MIN, PEAK_DETECTION_MAX, color='green', alpha=0.3)
+
+    # plt.title(title if title else 'CV Curve')
+    # plt.xlabel('Voltage (V)')
+    # plt.ylabel('Current (uA)')
+    # plt.grid()
+    # plt.legend()
+
+
+def compute_caff_response(v, i, vmin=PEAK_DETECTION_MIN, vmax=PEAK_DETECTION_MAX):
+    """ Computes the caffeine response from the CV data.
+    The response is computed as the area under the curve of the current vs voltage plot.
+    """
+
+    # find bound indices for the voltage range
+
+    start = np.where(v >= vmin)[0][0]  # Get the first index where v >= vmin
+    end = np.where(v >= vmax)[0][0] # Get the first index where v >= vmax
+
+
+
+    # Compute the area under the curve using the trapezoidal rule
+    area = simps(i[start:end], v[start:end])
+
+    return area
+
+
 
 if __name__ == "__main__":
+
+    #this did not work for me.
+    #plt.rcParams['text.usetex'] = True
+    #plt.rcParams['font.family'] = 'serif'
+    #plt.rcParams['font.serif'] = ['Computer Modern Roman'] # To use the classic LaTeX font
+
     df = getData()
 
     df.sort_values(by='HPLC_Caff', inplace=True)
 
-    
-
-    cv = read_cv_data(df.iloc[0]['cv_data1'])
+    fig, ax = plt.subplots(1,1,figsize=(10, 6))
 
 
+    data = []
+
+    for name in ["Alabaster Colombian Decaf",
+                  "Alabaster Colombian Decaf + 400 ppm Caf",
+                  'Alabaster Colombian Decaf + 800 ppm Caf']:
+
+        sample = df[ df['Name'] == name]
+
+
+        for i in range(1, 4):
+            cv = read_cv_data(sample[f'cv_data{i}'].iloc[0])
+
+            data.append({
+                'Name': f'{name}',
+                'x' : cv.index,
+                'i_ma': cv['i_ma'].to_numpy()
+            })
+
+    cmap = mplt.colormaps['copper']
+    num_lines = len(data)
+    colors = [cmap(i / num_lines) for i in range(num_lines)]
+
+    for i, cv in enumerate(data):
+        ax.plot(cv['x'], cv['i_ma'], color = colors[i], label=cv['Name'], lw=2, alpha=0.7)
+
+    plt.axvspan(PEAK_DETECTION_MIN, PEAK_DETECTION_MAX, color='green', alpha=0.3)
+
+    # plt.title(title if title else 'CV Curve')
+    plt.xlabel('Voltage (V)')
+    plt.ylabel('Current (uA)')
+    plt.grid()
+    plt.legend()
+
+
+    plt.show()
+
+    exit()
+
+    def mk_response(row):
+        cv = read_cv_data(row['cv_data1'])
+        return compute_caff_response(cv.index, cv['i_ma'].to_numpy())
+
+    def mk_r2(row):
+        cv = read_cv_data(row['cv_data1'])
+        from Regression import find_peak_response
+        return find_peak_response(cv.index, cv['i_ma'].to_numpy())[1]
+
+
+    df['SPE_area_method'] = df.apply(mk_response, axis=1)
+    df['SPE_peak_method'] = df.apply(mk_r2, axis=1)
 
 
 
 
-    print(cv)
 
+    if 0:
 
-    plot_cv_curve(cv, title=df.iloc[0]['Name'])
+        fig, axes = plt.subplots(2,1,figsize=(8, 6))
 
+        ax = axes[0]
+        ax.scatter(df['HPLC_Caff'], df['SPE_area_method'], color='blue', label='SPE Response')
+        ax.set_xlabel('HPLC Caffeine (ppm)')
+        ax.set_ylabel('SPE Caffeine Response (uA.V)')
+        ax.set_title('HPLC Caffeine vs SPE Caffeine (Integral Method)')
+        ax.grid()
+        ax.legend()
 
+        ax = axes[1]
+        ax.scatter(df['HPLC_Caff'], df['SPE_peak_method'], color='brown', label='SPE Response')
+        ax.set_xlabel('HPLC Caffeine (ppm)')
+        ax.set_ylabel('SPE Caffeine Response (uA)')
+        ax.set_title('HPLC Caffeine vs SPE Caffeine (Peak Method)')
+        ax.grid()
+        ax.legend()
+
+        plt.tight_layout()
+        plt.savefig('caff_response.pdf', dpi=300)
+    plt.show()
+
+    df.drop(columns=['cv_data1', 'cv_data 2', 'cv_data 3'], inplace=True)
+
+    print(tabulate.tabulate(df, headers='keys', tablefmt='pipe', showindex=False, floatfmt=".2f",
+                           numalign="right", stralign="left", disable_numparse=True))
