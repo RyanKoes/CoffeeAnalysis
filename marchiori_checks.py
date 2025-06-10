@@ -93,6 +93,7 @@ def read_cv_data(filename, normalize = None, datadir = Path('voltammetry-files')
         raise ValueError("normalize must be True or False")
     df = pd.read_csv(datadir / filename, sep=',', header=None, names=['t', 'v', 'i'], index_col='t')
 
+
     # 45 seconds are preconditioning
     # then it takes a second for the current to stabilize
     # ignore first 46 seconds as preconditioning
@@ -133,6 +134,9 @@ def read_cv_data(filename, normalize = None, datadir = Path('voltammetry-files')
         df['i_ma'] = df['i_ma'] - offset
 
 
+    # print(df)
+    # exit()
+
     return df
 
 
@@ -172,7 +176,7 @@ def plot_cv_curves(df_train, df_test, CAFF_PEAK_DETECTION_MIN, CAFF_PEAK_DETECTI
     """
     Plots CV curves for all samples in df_train and df_test.
     """
-    fig, ax = plt.subplots(1,1,figsize=(6, 5))
+    fig, ax = plt.subplots(1,1,figsize=(6, 4))
 
     data = []
     for i, sample in df_train.iterrows():
@@ -335,6 +339,13 @@ FRC Brazil Cerrado, medium roast IH- High BR, 2x dilute""".split('\n')
 
     df_train = df[df['Name'].isin(train)]
     df_test = df[~df['Name'].isin(train)]
+
+    print(f"Train samples: {len(df_train)}, Test samples: {len(df_test)}")
+    #print(df_train[['Name', 'HPLC_Caff', 'HPLC_CGA']])
+
+    # print(df_test)
+    # exit()
+
     df = None
 
     def mk_response(row, normalize, vmin, vmax, col='cv_data1'):
@@ -450,8 +461,13 @@ if __name__ == "__main__":
         'CAFF_PEAK_DETECTION_MIN': 1.2,
         'CAFF_PEAK_DETECTION_MAX': 1.6,
         'CGA_BOUNDS': (0.10, 0.35),
-        'NORMALIZE': True
+        'NORMALIZE': False
     }
+
+    #Train SPE Caff r2: 0.3267832098681297
+    #Test  SPE Caff r2: 0.02802346516164811
+    #Train SPE CGA  r2: 0.05751620355498499
+    #Test  SPE CGA  r2: 0.1107462840458211
 
     df_train, df_test = build_model_data(**bounds)
     pred_x, pred_y, r2, intercept, slope, df_train = build_caff_model(df_train)
@@ -477,7 +493,7 @@ if __name__ == "__main__":
 
 
         #fig, axes = plt.subplots(2,2,figsize=(12, 12))
-        fig, axes = plt.subplots(1,2,figsize=(12, 5))
+        fig, axes = plt.subplots(1,2,figsize=(12, 4))
 
         #make_plot(axes[0,0], df['SPE_area_method'], 'SPE (Integral Method)')
         #make_plot(axes[0,1], df['SPE_area_norm'], 'SPE (Integral Method Normalized)')
@@ -515,7 +531,7 @@ if __name__ == "__main__":
 
 
     if 1:
-        fig, ax = plt.subplots(1, 1, figsize=(6, 5))
+        fig, ax = plt.subplots(1, 1, figsize=(6, 4))
         ax.violinplot([df_train['SPE_Caff_err_pct'], df_test['SPE_Caff_err_pct'], df_train['SPE_CGA_err_pct'], df_test['SPE_CGA_err_pct']], showmeans=True, widths=0.5)
         #ax.set_xticklabels(['Train', 'Test'])
         ax.set_xticks([1, 2, 3, 4], labels=['Caffeine Model', 'Caffeine Test', 'CGA Model', 'CGA Test'])
@@ -526,7 +542,6 @@ if __name__ == "__main__":
         ax.yaxis.set_minor_locator(mplt.ticker.MultipleLocator(10))
         ax.grid()
         plt.tight_layout()
-        plt.show()
         plt.savefig('error_violin.pdf', dpi=300)
     #plt.show()
 
