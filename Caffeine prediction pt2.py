@@ -17,44 +17,63 @@ REFERENCE_END_V = 1.5  # Voltage where reference line ends
 PEAK_DETECTION_MIN = 1.15  # Minimum voltage for peak detection
 PEAK_DETECTION_MAX = 1.5  # Maximum voltage for peak detection
 
-file_paths = ['voltammetry-files/ColumbiaDecaf1.txt',
-                'voltammetry-files/ColumbiaDecaf2.txt',
-                'voltammetry-files/ColumbiaDecaf3.txt',
-                'voltammetry-files/ColumbiaDecaf100ppm1.txt',
-                'voltammetry-files/ColumbiaDecaf100ppm2.txt',
-                'voltammetry-files/ColumbiaDecaf100ppm3.txt',
-                'voltammetry-files/ColumbiaDecaf250ppm1.txt',
-                'voltammetry-files/ColumbiaDecaf250ppm2.txt',
-                'voltammetry-files/ColumbiaDecaf250ppm3.txt',
-                'voltammetry-files/ColumbiaDecaf500ppm1.txt',
-                'voltammetry-files/ColumbiaDecaf500ppm2.txt',
-                'voltammetry-files/ColumbiaDecaf500ppm3.txt',
-                'voltammetry-files/ColumbiaDecaf1000ppmnew1.txt',
-                'voltammetry-files/ColumbiaDecaf1000ppmnew2.txt',
-                'voltammetry-files/ColumbiaDecaf1000ppmnew3.txt',
-              'voltammetry-files/ColumbiaReg1.txt',
-                'voltammetry-files/ColumbiaReg2.txt',
-                'voltammetry-files/ColumbiaReg3.txt']
+file_paths = ['voltammetry-files/AlabasterColumbiaReg1.txt',
+              'voltammetry-files/AlabasterColumbiaReg2.txt',
+              'voltammetry-files/AlabasterColumbiaReg3.txt',
+              'voltammetry-files/AlabasterColumbiaReg4.txt',
+              'voltammetry-files/AlabasterColumbiaReg5.txt',
+              'voltammetry-files/BrazilCerado1.txt',
+              'voltammetry-files/BrazilCerado2.txt',
+              'voltammetry-files/BrazilCerado3.txt',
+              'voltammetry-files/BrazilCerado4.txt',
+              'voltammetry-files/BrazilCerado5.txt',
+              'voltammetry-files/EthiopianDry1.txt',
+              'voltammetry-files/EthiopianDry2.txt',
+              'voltammetry-files/EthiopianDry3.txt',
+              'voltammetry-files/EthiopianDry4.txt',
+              'voltammetry-files/EthiopianDry5.txt',
+              'voltammetry-files/Java1.txt',
+              'voltammetry-files/Java2.txt',
+              'voltammetry-files/Java3.txt',
+              'voltammetry-files/Java4.txt',
+              'voltammetry-files/Java5.txt',
+              'voltammetry-files/GuatemalaLight1.txt',
+              'voltammetry-files/GuatemalaLight2.txt',
+              'voltammetry-files/GuatemalaLight3.txt',
+              'voltammetry-files/GuatemalaLight4.txt',
+              'voltammetry-files/GuatemalaLight5.txt',
+              'voltammetry-files/GuatemalaMedium1.txt',
+              'voltammetry-files/GuatemalaMedium2.txt',
+              'voltammetry-files/GuatemalaMedium3.txt',
+              'voltammetry-files/GuatemalaMedium4.txt',
+              'voltammetry-files/GuatemalaMedium5.txt',
+              'voltammetry-files/GuatemalaDark1.txt',
+              'voltammetry-files/GuatemalaDark2.txt',
+              'voltammetry-files/GuatemalaDark3.txt',
+              'voltammetry-files/GuatemalaDark4.txt',
+              'voltammetry-files/GuatemalaDark5.txt']
 
 # Coffee names for labeling
 coffee_names = [
-    "Decaf",
-    "100ppm",
-    "250ppm",
-    "500ppm",
-    "1000ppm",
-    "Columbia Reg"
+    "Alabaster Columbia Reg",
+    "Brazil Cerado",
+    "Ethiopian Dry",
+    "Java",
+    "Guatemala Light",
+    "Guatemala Medium",
+    "Guatemala Dark"
 ]
 
 caffeine_ppm = [80, 180, 330, 580, 1080, 787.1]
 
 colors = [
-    '#ff4d4d', '#ff4d4d', '#ff4d4d',
-    '#ffb84d', '#ffb84d', '#ffb84d',
-    '#ffff4d', '#ffff4d', '#ffff4d',
-    '#80ff4d', '#80ff4d', '#80ff4d',
-    '#4dffdb', '#4dffdb', '#4dffdb',
-    '#4da6ff', '#4da6ff', '#4da6ff'
+    '#ff4d4d', '#ff4d4d', '#ff4d4d', '#ff4d4d', '#ff4d4d',
+    '#ffb84d', '#ffb84d', '#ffb84d', '#ffb84d', '#ffb84d',
+    '#ffff4d', '#ffff4d', '#ffff4d', '#ffff4d', '#ffff4d',
+    '#80ff4d', '#80ff4d', '#80ff4d', '#80ff4d', '#80ff4d',
+    '#4dffdb', '#4dffdb', '#4dffdb', '#4dffdb', '#4dffdb',
+    '#4da6ff', '#4da6ff', '#4da6ff', '#4da6ff', '#4da6ff',
+    '#b84dff', '#b84dff', '#b84dff', '#b84dff', '#b84dff'
 ]
 data = []
 responses = []
@@ -140,7 +159,6 @@ def find_peak_response(voltage, response):
         return None, None, None, reference_y, start_point, end_point
 
 
-
 '''
 Normalizes the data by finding the response at 1V for each curve.
 '''
@@ -151,18 +169,48 @@ def cga_normalization(df):
     response = df['Detected Response'].values
     # Find the response between CGA_MIN_VOLTAGE and CGA_MAX_VOLTAGE in the up curve
     up_curve_indices = (voltage >= CGA_MIN_VOLTAGE) & (voltage <= CGA_MAX_VOLTAGE) & (
-                np.diff(voltage, prepend=voltage[0]) > 0)
+            np.diff(voltage, prepend=voltage[0]) > 0)
     # Average response between CGA_MIN_VOLTAGE and CGA_MAX_VOLTAGE in the up curve
     response_at_1v = np.mean(response[up_curve_indices])
     V_responses.append(response_at_1v)
 
 
+def plot_grouped_data(group_index, group_files, group_name, color):
+    combined_voltage = []
+    combined_response = []
+
+    for file_path in group_files:
+        df = read_data(file_path)
+        if df is not None:
+            voltage = df['Applied Voltage'].values
+            response = df['Detected Response'].values
+
+            # Subtract the corresponding response at 1V for each curve
+            if CGA_NORMALIZE:
+                response -= np.mean(V_responses)
+
+            combined_voltage.append(voltage)
+            combined_response.append(response)
+
+    # Average the responses for the group
+    combined_voltage = np.concatenate(combined_voltage)
+    combined_response = np.concatenate(combined_response)
+    y_smoothed = moving_average(combined_response, window_size=SMOOTHING_WINDOW_SIZE)
+    x_smoothed = combined_voltage[len(combined_voltage) - len(y_smoothed):]
+
+    # Plot the averaged response for the group
+    plt.plot(x_smoothed, y_smoothed, label=group_name, color=color, alpha=0.8)
+
+    return x_smoothed, y_smoothed
+
+
+# Group coffee samples in batches of 5 for the legend
 def plot_data(i, file_path, df):
     voltage = df['Applied Voltage'].values
     response = df['Detected Response'].values
 
     # Subtract the corresponding response at 1V for each curve
-    if (CGA_NORMALIZE):
+    if CGA_NORMALIZE:
         response -= V_responses[i]
 
     y_smoothed = moving_average(response, window_size=SMOOTHING_WINDOW_SIZE)
@@ -178,14 +226,12 @@ def plot_data(i, file_path, df):
         responses.append(peak_response)
 
         # Plot the curve and the peak point
-        plt.plot(x_smoothed[0: len(x_smoothed) // 2], y_smoothed[0: len(y_smoothed) // 2], label=file_path,
-                 color=colors[i], alpha=0.8)
-        plt.scatter(peak_voltage, peak_response, color=colors[i], label=f"Peak Response {file_path}", zorder=5)
+        plt.plot(x_smoothed[0: len(x_smoothed) // 2], y_smoothed[0: len(y_smoothed) // 2], color=colors[i], alpha=0.8)
+        plt.scatter(peak_voltage, peak_response, color=colors[i], zorder=5)
 
         # Plot the dynamic reference line and its endpoints
         if i < 5:  # Only plot reference lines for the first few curves to avoid clutter
             first_half_idx = len(x_smoothed) // 2
-            #plt.plot(x_smoothed[0:first_half_idx], reference_y[0:first_half_idx], '--', color=colors[i], alpha=0.3)
             plt.scatter([start_point[0], end_point[0]], [start_point[1], end_point[1]], color=colors[i], marker='x',
                         alpha=0.5)
 
@@ -268,9 +314,11 @@ def process_chunks(data):
 
 
 if __name__ == '__main__':
-    plt.figure(figsize=(10, 6))
+
+    plt.figure(figsize=(12, 8), dpi=600)
 
     smoothed_responses = []
+    legend_added = set()  # Track which coffee types have been added to legend
 
     for i, file_path in enumerate(file_paths):
         df = read_data(file_path)
@@ -281,14 +329,60 @@ if __name__ == '__main__':
     for i, file_path in enumerate(file_paths):
         df = read_data(file_path)
         if df is not None:
-            smoothed_responses.append(plot_data(i, file_path, df))
+            voltage = df['Applied Voltage'].values
+            response = df['Detected Response'].values
 
-    plt.xlabel('Applied Voltage')
-    plt.ylabel('Response uA')
-    plt.title('Cyclic Voltammetry - Dynamic Baseline Peak Detection')
-    plt.legend(bbox_to_anchor=(1, 1))
+            # Subtract the corresponding response at 1V for each curve
+            if CGA_NORMALIZE:
+                response -= V_responses[i]
+
+            y_smoothed = moving_average(response, window_size=SMOOTHING_WINDOW_SIZE)
+            x_smoothed = voltage[len(voltage) - len(y_smoothed):]
+
+            # Find the peak response after subtracting the dynamic reference line
+            result = find_peak_response(x_smoothed, y_smoothed)
+
+            if result[0] is not None:
+                peak_voltage, peak_response, peak_diff, reference_y, start_point, end_point = result
+
+                print(f"File: {file_path}, Peak Response: {peak_response:.3f} uA at Voltage: {peak_voltage:.3f}")
+                responses.append(peak_response)
+
+                # Determine coffee group for legend
+                group_index = i // 5
+                coffee_name = coffee_names[group_index]
+
+                # Plot the curve and the peak point
+                if coffee_name not in legend_added:
+                    # Add to legend only for the first curve of each coffee type
+                    plt.plot(x_smoothed[0: len(x_smoothed) // 2], y_smoothed[0: len(y_smoothed) // 2],
+                             color=colors[i], alpha=0.8, label=coffee_name)
+                    legend_added.add(coffee_name)
+                else:
+                    # Plot without label for subsequent curves of same coffee type
+                    plt.plot(x_smoothed[0: len(x_smoothed) // 2], y_smoothed[0: len(y_smoothed) // 2],
+                             color=colors[i], alpha=0.8)
+
+                plt.scatter(peak_voltage, peak_response, color=colors[i], zorder=5)
+
+                # Plot the dynamic reference line and its endpoints
+                if i < 5:  # Only plot reference lines for the first few curves to avoid clutter
+                    first_half_idx = len(x_smoothed) // 2
+                    plt.scatter([start_point[0], end_point[0]], [start_point[1], end_point[1]], color=colors[i],
+                                marker='x',
+                                alpha=0.5)
+
+            smoothed_responses.append((x_smoothed[0: len(x_smoothed) // 2], y_smoothed[0: len(y_smoothed) // 2]))
+
+    plt.xlabel('Applied Voltage', fontsize=18)
+    plt.ylabel('Normalized Response (uA)', fontsize=18)
+    plt.tick_params(axis='x', labelsize=16)
+    plt.tick_params(axis='y', labelsize=16)
+    plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.4), fontsize=16, ncol=3)
     plt.grid(True)
     plt.ylim(-20, 200)
+    plt.tight_layout()
+    plt.savefig('second_plot.png', format='png')
     plt.show()
 
     averages, std_devs = process_chunks(responses)

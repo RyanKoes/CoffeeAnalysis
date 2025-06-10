@@ -61,124 +61,19 @@ colors = [
 ]
 
 # New files to predict caffeine content (empty by default, to be filled by user)
-predict_file_paths = ['voltammetry-files/A1.txt',
-                      'voltammetry-files/A2.txt',
-                      'voltammetry-files/A3.txt',
-                      'voltammetry-files/B1.txt',
-                      'voltammetry-files/B2.txt',
-                      'voltammetry-files/B3.txt',
-                      'voltammetry-files/C1.txt',
-                      'voltammetry-files/C2.txt',
-                      'voltammetry-files/C3.txt',
-                      'voltammetry-files/D1.txt',
-                      'voltammetry-files/D2.txt',
-                      'voltammetry-files/D3.txt',
-                      'voltammetry-files/E1.txt',
-                      'voltammetry-files/E2.txt',
-                      'voltammetry-files/E3.txt',
-                      'voltammetry-files/F1.txt',
-                      'voltammetry-files/F2.txt',
-                      'voltammetry-files/F3.txt',
-                      'voltammetry-files/G1.txt',
-                      'voltammetry-files/G2.txt',
-                      'voltammetry-files/G3.txt',
-                      'voltammetry-files/H1.txt',
-                      'voltammetry-files/H2.txt',
-                      'voltammetry-files/H3.txt',
-                      'voltammetry-files/I1.txt',
-                      'voltammetry-files/I2.txt',
-                      'voltammetry-files/I3.txt',
-                      'voltammetry-files/J1.txt',
-                      'voltammetry-files/J2.txt',
-                      'voltammetry-files/J3.txt',
-                      'voltammetry-files/K1.txt',
-                      'voltammetry-files/K2.txt',
-                      'voltammetry-files/K3.txt',
-                      'voltammetry-files/L1.txt',
-                      'voltammetry-files/L2.txt',
-                      'voltammetry-files/L3.txt',
-                      'voltammetry-files/M1.txt',
-                      'voltammetry-files/M2.txt',
-                      'voltammetry-files/M3.txt',
-                      'voltammetry-files/N1.txt',
-                      'voltammetry-files/N2.txt',
-                      'voltammetry-files/N3.txt',
-                      'voltammetry-files/dunkin1.txt',
-                      'voltammetry-files/dunkin2.txt',
-                      'voltammetry-files/dunkin3.txt',
-                      'voltammetry-files/mccafe1.txt',
-                      'voltammetry-files/mccafe2.txt',
-                      'voltammetry-files/mccafe3.txt',
-                      'voltammetry-files/sheetz1.txt',
-                      'voltammetry-files/sheetz2.txt',
-                      'voltammetry-files/sheetz3.txt',
-                      'voltammetry-files/sbpike1.txt',
-                      'voltammetry-files/sbpike2.txt',
-                      'voltammetry-files/sbpike3.txt'
-                      ]
+predict_file_paths = ['voltammetry-files/A1.txt']
 
-predict_names = ["FRC Decaf Colombian, med roast IH",
-                 "FRC Sugarcame Decaf Colombian, med roast IH",
-                 "FRC Swiss Water Decaf Colombian, med roast IH",
-                 "FRC Mexican medium roast",
-                 "FRC Sumatra medium roast",
-                 "FRC Colombia medium roast",
-                 "FRC Kenya AA, medium roast IH",
-                 "FRC Ethiopia Yirgacheffe, light roast IH",
-                 "FRC ROBUSTA Brazil, medium roast IH",
-                 "FRC Brazil Cerrado, light roast IH",
-                 "FRC Brazil Cerrado, medium roast IH",
-                 "FRC Brazil Cerrado, dark roast IH",
-                 "FRC Brazil Cerrado, medium roast IH- High BR",
-                 "FRC Ethiopia Yirgacheffe, light roast IH- High BR",
-                 "Dunkin Original Blend, 5/22 8am",
-                 "McDonald's Regular Coffee, 5/22 8am",
-                 "Sheetz Classic Coffee (100% arabica), 12oz refill  5/22 8am",
-                 "Starbucks Pike Place Roast, 5/22 8am"]
+predict_names = ["FRC Decaf Colombian, med roast IH"]
 
 # ACTUAL CAFFEINE VALUES FOR PREDICTION SAMPLES
 # Add your actual caffeine values here (in ppm) - one value per group of 3 files
 # These should correspond to the predict_names groups
 actual_caffeine_ppm = [
-    75,  # FRC Decaf Colombian
-    60,  # FRC Sugarcame Decaf Colombian
-    40,  # FRC Swiss Water Decaf Colombian
-    820,  # FRC Mexican medium roast
-    830,  # FRC Sumatra medium roast
-    770,  # FRC Colombia medium roast
-    840,  # FRC Kenya AA
-    770,  # FRC Ethiopia Yirgacheffe
-    1220,  # FRC ROBUSTA Brazil
-    870,  # FRC Brazil Cerrado light
-    850,  # FRC Brazil Cerrado medium
-    860,  # FRC Brazil Cerrado dark
-    1100,  # FRC Brazil Cerrado medium High BR
-    1060,  # FRC Ethiopia Yirgacheffe High BR
-    530,  # Dunkin Original Blend
-    520,  # McDonald's Regular Coffee
-    420,  # Sheetz Classic Coffee
-    680,  # Starbucks Pike Place Roast
+    75
 ]
 
 predict_colors = [
     "#1f77b4",  # blue
-    "#ff7f0e",  # orange
-    "#2ca02c",  # green
-    "#d62728",  # red
-    "#9467bd",  # purple
-    "#8c564b",  # brown
-    "#e377c2",  # pink
-    "#7f7f7f",  # gray
-    "#bcbd22",  # yellow-green
-    "#17becf",  # cyan
-    "#aec7e8",  # light blue
-    "#ffbb78",  # light orange
-    "#98df8a",  # light green
-    "#ff9896",  # light red
-    "#c5b0d5",  # light purple
-    "#c49c94",  # light brown
-    "#f7b6d2",  # light pink
-    "#c7c7c7"  # light gray
 ]
 
 data = []
@@ -253,33 +148,42 @@ Find the voltage with the highest response after subtracting the reference line
 
 
 def find_peak_response(voltage, response):
-    print(f"  Peak detection starting with {len(voltage)} data points")
     # Generate dynamic reference line based on the curve's actual points
     reference_y, start_point, end_point = generate_dynamic_reference_line(voltage, response)
 
     # Subtract reference line from response
     difference = response - reference_y
-    print(f"  Calculated difference array with {len(difference)} points")
 
-    # Find the peak in the specified voltage range
-    valid_indices = (voltage >= PEAK_DETECTION_MIN) & (voltage <= PEAK_DETECTION_MAX)
-    filtered_voltage = voltage[valid_indices]
-    filtered_difference = difference[valid_indices]
-    print(f"  Peak detection voltage range filtering: {len(filtered_voltage)} points from {len(voltage)} total points")
+    # Find the peak in the specified voltage range -- THIS IS OXIDATION + REDUCTION
+    # valid_indices = (voltage >= PEAK_DETECTION_MIN) & (voltage <= PEAK_DETECTION_MAX)
+    # filtered_voltage = voltage[valid_indices]
+
+    # print(filtered_voltage)
+
+    x_start = np.where(voltage >= PEAK_DETECTION_MIN)[0][0]
+    x_end = x_start + np.where(voltage[x_start:] > PEAK_DETECTION_MAX)[0][0]
+
+    print(f"Start index: {x_start}, End index: {x_end}")
+
+    filtered_voltage = voltage[x_start:x_end]
+    filtered_difference = difference[x_start:x_end]
 
     if len(filtered_difference) > 0:
         # Find the index of maximum absolute difference
         max_diff_index = np.argmax(np.abs(filtered_difference))
         peak_voltage = filtered_voltage[max_diff_index]
 
+        print(f"Peak voltage index: {max_diff_index}, Peak voltage: {peak_voltage}")
+        print(f"Difference at peak: {filtered_difference[max_diff_index]}")
+        print(f"Min of filtered_difference: {min(filtered_difference)}")
+
         # Find the corresponding index in the original arrays
         original_index = np.where(voltage == peak_voltage)[0][0]
         original_response = response[original_index]
-        print(f"  Peak found at index {original_index} in original array")
 
+        print(f'Peak voltage: {peak_voltage}')
         return peak_voltage, original_response, filtered_difference[max_diff_index], reference_y, start_point, end_point
     else:
-        print("  No valid points found in peak detection range")
         return None, None, None, reference_y, start_point, end_point
 
 
@@ -544,11 +448,12 @@ def evaluate_prediction_accuracy(predicted_values, actual_values, sample_names):
     print(f"  Root Mean Squared Error: {np.sqrt(mse_pred):.2f} ppm")
     print(f"  Mean Percent Error: {mean_percent_error:.2f}%")
 
-    print(f"\nDetailed Comparison:")
+    # Detailed Comparison for all predicted coffees
+    print("\nDetailed Comparison:")
     print(f"{'Sample':<50} {'Actual':<10} {'Predicted':<10} {'Error':<10} {'% Error':<10}")
     print("-" * 90)
 
-    for i, (name, actual, predicted) in enumerate(zip(sample_names, actual_values, predicted_values)):
+    for name, actual, predicted in zip(predict_names, actual_caffeine_ppm, pred_caffeine):
         error = predicted - actual
         percent_error = abs(error / actual) * 100 if actual != 0 else 0
         print(f"{name:<50} {actual:<10.1f} {predicted:<10.1f} {error:<10.1f} {percent_error:<10.1f}")

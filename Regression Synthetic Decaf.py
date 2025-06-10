@@ -222,6 +222,10 @@ def find_nearest_point(voltage_array, response_array, target_voltage):
     return voltage_array[idx], response_array[idx]
 
 
+"""
+This function creates a synthetic decaf curve using an exponential fit
+Other fits can be used
+"""
 def generate_synthetic_exponential_curve(voltage, response):
     """Generate synthetic exponential curve using data from low and high voltage ranges"""
     # Extract data from low voltage range (0V to SYNTHETIC_CURVE_START)
