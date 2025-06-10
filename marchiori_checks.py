@@ -1,18 +1,25 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mplt
-
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
 import numpy as np
-from scipy.integrate import simps
+from scipy.integrate import simpson
 
+from functools import partial
 
 import tabulate
 from pathlib import Path
 
 
 
-PEAK_DETECTION_MIN = 1.15  # Minimum voltage for peak detection
-PEAK_DETECTION_MAX = 1.5  # Maximum voltage for peak detection
+PEAK_DETECTION_MIN = 1.2  # Minimum voltage for peak detection
+PEAK_DETECTION_MAX = 1.35  # Maximum voltage for peak detection
+
+CGA_MIN_VOLTAGE = 0.7
+CGA_MAX_VOLTAGE = 0.75
+
+CGA_NORMALIZE = False
 
 
 def getData(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA'):
@@ -66,7 +73,7 @@ def getData(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA'):
     return df
 
 
-def read_cv_data(filename, datadir = Path('voltammetry-files')):
+def read_cv_data(filename, normalize = CGA_NORMALIZE, datadir = Path('voltammetry-files')):
     """ Reads a CV data file and returns a DataFrame with the data.
     """
     df = pd.read_csv(datadir / filename, sep=',', header=None, names=['t', 'v', 'i'], index_col='t')
@@ -94,6 +101,12 @@ def read_cv_data(filename, datadir = Path('voltammetry-files')):
     # reindex to voltage
     df = df.set_index('v_ma')
     df.drop(columns=['v', 'i'], inplace=True)
+
+    # normalize if needed
+    if normalize:
+        offset = df['i_ma'][CGA_MIN_VOLTAGE:CGA_MAX_VOLTAGE].mean()
+
+        df['i_ma'] = df['i_ma'] - offset
 
 
     return df
@@ -127,109 +140,185 @@ def compute_caff_response(v, i, vmin=PEAK_DETECTION_MIN, vmax=PEAK_DETECTION_MAX
     start = np.where(v >= vmin)[0][0]  # Get the first index where v >= vmin
     end = np.where(v >= vmax)[0][0] # Get the first index where v >= vmax
 
-
-
     # Compute the area under the curve using the trapezoidal rule
-    area = simps(i[start:end], v[start:end])
+    area = simpson(y=i[start:end], x=v[start:end])
 
     return area
 
-
-
 if __name__ == "__main__":
-
-    #this did not work for me.
-    #plt.rcParams['text.usetex'] = True
-    #plt.rcParams['font.family'] = 'serif'
-    #plt.rcParams['font.serif'] = ['Computer Modern Roman'] # To use the classic LaTeX font
-
     df = getData()
-
     df.sort_values(by='HPLC_Caff', inplace=True)
+    df_train = df[df['Name'].str.contains('Alabaster Colombian Decaf') ]
+    df_test = df[~df['Name'].str.contains('Alabaster Colombian Decaf')]
+    df = None
 
-    fig, ax = plt.subplots(1,1,figsize=(10, 6))
+    if 0:
+        fig, ax = plt.subplots(1,1,figsize=(10, 6))
+
+        data = []
+        for name in ["Alabaster Colombian Decaf",
+                    "Alabaster Colombian Decaf + 400 ppm Caf",
+                    'Alabaster Colombian Decaf + 800 ppm Caf']:
+
+            sample = df[ df['Name'] == name]
+
+            for i in range(1, 4):
+                cv = read_cv_data(sample[f'cv_data{i}'].iloc[0])
+
+                data.append({
+                    'Name': f'{name}',
+                    'x' : cv.index,
+                    'i_ma': cv['i_ma'].to_numpy()
+                })
+
+        cmap = mplt.colormaps['copper']
+        num_lines = len(data)
+        colors = [cmap(i / num_lines) for i in range(num_lines)]
+
+        for i, cv in enumerate(data):
+            ax.plot(cv['x'], cv['i_ma'], color = colors[i], label=cv['Name'], lw=2, alpha=0.7)
+
+        plt.axvspan(PEAK_DETECTION_MIN, PEAK_DETECTION_MAX, color='green', alpha=0.3)
+
+        # plt.title(title if title else 'CV Curve')
+        plt.xlabel('Voltage (V)')
+        plt.ylabel('Current (uA)')
+        plt.grid()
+        plt.legend()
 
 
-    data = []
+        plt.show()
 
-    for name in ["Alabaster Colombian Decaf",
-                  "Alabaster Colombian Decaf + 400 ppm Caf",
-                  'Alabaster Colombian Decaf + 800 ppm Caf']:
+        exit()
 
-        sample = df[ df['Name'] == name]
-
-
-        for i in range(1, 4):
-            cv = read_cv_data(sample[f'cv_data{i}'].iloc[0])
-
-            data.append({
-                'Name': f'{name}',
-                'x' : cv.index,
-                'i_ma': cv['i_ma'].to_numpy()
-            })
-
-    cmap = mplt.colormaps['copper']
-    num_lines = len(data)
-    colors = [cmap(i / num_lines) for i in range(num_lines)]
-
-    for i, cv in enumerate(data):
-        ax.plot(cv['x'], cv['i_ma'], color = colors[i], label=cv['Name'], lw=2, alpha=0.7)
-
-    plt.axvspan(PEAK_DETECTION_MIN, PEAK_DETECTION_MAX, color='green', alpha=0.3)
-
-    # plt.title(title if title else 'CV Curve')
-    plt.xlabel('Voltage (V)')
-    plt.ylabel('Current (uA)')
-    plt.grid()
-    plt.legend()
-
-
-    plt.show()
-
-    exit()
-
-    def mk_response(row):
-        cv = read_cv_data(row['cv_data1'])
+    def mk_response(row, col='cv_data1', normalize=CGA_NORMALIZE):
+        cv = read_cv_data(row[col], normalize=normalize)
         return compute_caff_response(cv.index, cv['i_ma'].to_numpy())
 
-    def mk_r2(row):
-        cv = read_cv_data(row['cv_data1'])
+    def mk_r2(row, col='cv_data1', normalize=CGA_NORMALIZE):
+        cv = read_cv_data(row[col], normalize=normalize)
         from Regression import find_peak_response
-        return find_peak_response(cv.index, cv['i_ma'].to_numpy())[1]
+        return find_peak_response(cv.index, cv['i_ma'].to_numpy())[1]   
 
+    #df['SPE_area_method'] = df.apply(partial(mk_response, normalize=False), axis=1)
+    #df['SPE_peak_method'] = df.apply(partial(mk_r2, normalize=False), axis=1)
+    df_train['SPE_area_norm'] = df_train.apply(partial(mk_response, normalize=True), axis=1)
+    #df['SPE_peak_norm'] = df.apply(partial(mk_r2, normalize=True), axis=1)
 
-    df['SPE_area_method'] = df.apply(mk_response, axis=1)
-    df['SPE_peak_method'] = df.apply(mk_r2, axis=1)
+    results = []
+    for i, row in df_train.iterrows():
+        for k in range(1, 4):
+            results.append(
+                {
+                    'Name': row['Name'],
+                    'HPLC_Caff': row['HPLC_Caff'],
+                    #'HPLC_CGA': row['HPLC_CGA'],
+                    'SPE_area_norm': mk_response(row, col=f'cv_data{k}', normalize=True),                    
+                }
+            )
 
+    df_train = pd.DataFrame(results)
+    
+    results = []
+    for i, row in df_test.iterrows():
+        for k in range(1, 4):
+            results.append(
+                {
+                    'Name': row['Name'],
+                    'HPLC_Caff': row['HPLC_Caff'],
+                    #'HPLC_CGA': row['HPLC_CGA'],
+                    'SPE_area_norm': mk_response(row, col=f'cv_data{k}', normalize=True),                    
+                }
+            )
 
+    df_test = pd.DataFrame(results)
+    
 
+    def lr(x, y):
+
+        """ Returns a linear regression model for the given x and y data.
+        """
+        model = LinearRegression()
+        model.fit(x.values.reshape(-1, 1), y.values)       
+        #pred_y = model.predict(x.values.reshape(-1, 1))
+
+        # predict from zero to double max x
+        x_range = np.linspace(0, x.max() * 2, num=100)
+        pred_y = model.predict(x_range.reshape(-1, 1))
+        return x_range, pred_y, r2_score(y, model.predict(x.values.reshape(-1,1))), model.intercept_, model.coef_[0]
+           
+    def add_regression(ax, x, y):
+        """ Adds a linear regression line to the given axes.
+        """
+        pred_x, pred_y, r2, intercept, slope = lr(x, y)
+        ax.plot(pred_x, pred_y, color='red', label='Linear Regression', lw=2)
+
+        # slope from model
+        ax.annotate(f'y = {slope:.6f}x + {intercept:.3f} (R² = {r2:.2f})',
+                    xy=(0.05, 0.90), xycoords='axes fraction', fontsize=10,
+                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.5))
+
+    pred_x, pred_y, r2, intercept, slope = lr(df_train['SPE_area_norm'], df_train['HPLC_Caff'   ])
+    df_train['SPE_Caff'] = df_train['SPE_area_norm'] * slope + intercept
+    df_train['SPE_Caff_err'] = df_train['SPE_Caff'] - df_train['HPLC_Caff']
+    df_train['SPE_Caff_err_pct'] = (df_train['SPE_Caff'] - df_train['HPLC_Caff']) / df_train['HPLC_Caff'] * 100
+    
+    df_test['SPE_Caff'] = df_test['SPE_area_norm'] * slope + intercept
+    df_test['SPE_Caff_err'] = df_test['SPE_Caff'] - df_test['HPLC_Caff']
+    df_test['SPE_Caff_err_pct'] = (df_test['SPE_Caff'] - df_test['HPLC_Caff']) / df_test['HPLC_Caff'] * 100
+
+    print(tabulate.tabulate(df_train, headers='keys', tablefmt='pipe', showindex=False, floatfmt=".3f",
+                           numalign="right", stralign="left"))
+    
+    print(tabulate.tabulate(df_test, headers='keys', tablefmt='pipe', showindex=False, floatfmt=".3f",
+                           numalign="right", stralign="left"))
+    
+    # print mean std min max for the SPE_Caff_err_pct column
+    print(f"Train SPE Caff Error (%): mean={df_train['SPE_Caff_err_pct'].mean():.2f}, std={df_train['SPE_Caff_err_pct'].std():.2f}, min={df_train['SPE_Caff_err_pct'].min():.2f}, max={df_train['SPE_Caff_err_pct'].max():.2f}")
+    print(f"Test SPE Caff Error (%): mean={df_test['SPE_Caff_err_pct'].mean():.2f}, std={df_test['SPE_Caff_err_pct'].std():.2f}, min={df_test['SPE_Caff_err_pct'].min():.2f}, max={df_test['SPE_Caff_err_pct'].max():.2f}")
+
+    print(f"Train SPE Caff Error (ppm): mean={df_train['SPE_Caff_err'].mean():.2f}, std={df_train['SPE_Caff_err'].std():.2f}, min={df_train['SPE_Caff_err'].min():.2f}, max={df_train['SPE_Caff_err'].max():.2f}")
+    print(f"Test SPE Caff Error (ppm): mean={df_test['SPE_Caff_err'].mean():.2f}, std={df_test['SPE_Caff_err'].std():.2f}, min={df_test['SPE_Caff_err'].min():.2f}, max={df_test['SPE_Caff_err'].max():.2f}")
+
+    if 1:
+        #fig, axes = plt.subplots(2,2,figsize=(12, 12))
+        fig, axes = plt.subplots(1,1,figsize=(12, 5))
+        def make_plot(ax, x, y, label):
+            ax.scatter(x, y,  color='blue', label=label)
+            add_regression(ax, x, y)
+
+            ax.set_xlabel('SPE Caffeine Response (uA.V)')
+            ax.set_ylabel('HPLC Caffeine (ppm)')
+            ax.set_title(f'{label} vs HPLC Caffeine')
+            ax.set_ylim(-500, 1400)
+            ax.set_xlim(0, x.max() * 1.2)
+            ax.grid()
+            #ax.legend(loc='lower left')
+
+        #make_plot(axes[0,0], df['SPE_area_method'], 'SPE (Integral Method)')
+        #make_plot(axes[0,1], df['SPE_area_norm'], 'SPE (Integral Method Normalized)')
+        make_plot(axes, df_train['SPE_area_norm'], df_train['HPLC_Caff'], 'SPE (training)')
+        #make_plot(axes[1,0], df['SPE_peak_method'], 'SPE (Peak Method)')
+        #make_plot(axes[1,1], df['SPE_peak_norm'], 'SPE (Peak Method Normalized)')
+
+        #make_plot(axes[1], df_test['SPE_area_norm'], df_test['HPLC_Caff'], 'SPE (test)')
 
 
     if 0:
-
-        fig, axes = plt.subplots(2,1,figsize=(8, 6))
-
-        ax = axes[0]
-        ax.scatter(df['HPLC_Caff'], df['SPE_area_method'], color='blue', label='SPE Response')
-        ax.set_xlabel('HPLC Caffeine (ppm)')
-        ax.set_ylabel('SPE Caffeine Response (uA.V)')
-        ax.set_title('HPLC Caffeine vs SPE Caffeine (Integral Method)')
-        ax.grid()
-        ax.legend()
-
-        ax = axes[1]
-        ax.scatter(df['HPLC_Caff'], df['SPE_peak_method'], color='brown', label='SPE Response')
-        ax.set_xlabel('HPLC Caffeine (ppm)')
-        ax.set_ylabel('SPE Caffeine Response (uA)')
-        ax.set_title('HPLC Caffeine vs SPE Caffeine (Peak Method)')
-        ax.grid()
-        ax.legend()
+        fig, ax = plt.subplots(1, 1, figsize=(4, 5))
+        ax.violinplot([df_train['SPE_Caff_err_pct'], df_test['SPE_Caff_err_pct']], showmeans=True, widths=0.5)
+        #ax.set_xticklabels(['Train', 'Test'])
+        ax.set_xticks([1, 2], labels=['Train', 'Test'])
+        ax.set_title('SPE Caffeine vs HPLC Error')
+        #ax.set_ylim(-250,250)
+        ax.set_ylabel('Error Percentage (%)')
+        
 
         plt.tight_layout()
-        plt.savefig('caff_response.pdf', dpi=300)
+        #plt.savefig('caff_response.pdf', dpi=300)
     plt.show()
 
-    df.drop(columns=['cv_data1', 'cv_data 2', 'cv_data 3'], inplace=True)
+    # df.drop(columns=['cv_data1', 'cv_data 2', 'cv_data 3'], inplace=True)
 
-    print(tabulate.tabulate(df, headers='keys', tablefmt='pipe', showindex=False, floatfmt=".2f",
-                           numalign="right", stralign="left", disable_numparse=True))
+    # print(tabulate.tabulate(df, headers='keys', tablefmt='pipe', showindex=False, floatfmt=".2f",
+    #                        numalign="right", stralign="left", disable_numparse=True))
