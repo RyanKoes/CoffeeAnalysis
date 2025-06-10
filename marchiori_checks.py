@@ -11,18 +11,22 @@ from functools import partial
 import tabulate
 from pathlib import Path
 
+from functools import cache
 
 
-PEAK_DETECTION_MIN = 1.2  # Minimum voltage for peak detection
-PEAK_DETECTION_MAX = 1.35  # Maximum voltage for peak detection
+#0.85 R2
+# CAFF_PEAK_DETECTION_MIN = 1.2  # Minimum voltage for peak detection
+# CAFF_PEAK_DETECTION_MAX = 1.35  # Maximum voltage for peak detection
+#CAFF_PEAK_DETECTION_MIN = 1.1  # Minimum voltage for peak detection
+#CAFF_PEAK_DETECTION_MAX = 1.4  # Maximum voltage for peak detection
 
-CGA_MIN_VOLTAGE = 0.7
-CGA_MAX_VOLTAGE = 0.75
+NORMALIZE_MIN_VOLTAGE = 0.7
+NORMALIZE_MAX_VOLTAGE = 0.75
 
-CGA_NORMALIZE = False
+#NORMALIZE = True
 
-
-def getData(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA'):
+@cache
+def getRawData(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA', use_cache=True):
     """ Returns:
                                                     Name Brew date  HPLC_Caff  HPLC_CGA     cv_data1    cv_data 2        cv_data 3
     0                           Alabaster Colombian Decaf   5/17/25       52.0     920.0  aladec1.txt  aladec2.txt  aladec3edge.txt
@@ -58,7 +62,12 @@ def getData(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA'):
     # Construct the URL to export the *first* sheet as CSV.
     url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv'
 
+    if Path('raw_data_cache.pkl').exists() and use_cache:
+        # load from cache
+        df = pd.read_pickle('raw_data_cache.pkl')
+        return df
 
+    raise("Not using cache!")
     df = pd.read_csv(url)
 
     # keep columns
@@ -70,12 +79,18 @@ def getData(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA'):
     # drop NA rows
     df = df.dropna()
 
+    if use_cache:
+        df.to_pickle('raw_data_cache.pkl')
+
     return df
 
-
-def read_cv_data(filename, normalize = CGA_NORMALIZE, datadir = Path('voltammetry-files')):
+@cache
+def read_cv_data(filename, normalize = None, datadir = Path('voltammetry-files')):
     """ Reads a CV data file and returns a DataFrame with the data.
     """
+
+    if normalize is None:
+        raise ValueError("normalize must be True or False")
     df = pd.read_csv(datadir / filename, sep=',', header=None, names=['t', 'v', 'i'], index_col='t')
 
     # 45 seconds are preconditioning
@@ -95,6 +110,14 @@ def read_cv_data(filename, normalize = CGA_NORMALIZE, datadir = Path('voltammetr
     df['v_ma'] = df['v'].rolling(window=10, center=True).mean()
     df['i_ma'] = df['i'].rolling(window=10, center=True).mean()
 
+    # df['v_ma'] = df['v'].rolling(window=1, center=True).mean()
+    # df['i_ma'] = df['i'].rolling(window=1, center=True).mean()
+
+    # do emw rolling mean with a span of 10
+    # df['v_ma'] = df['v'].ewm(span=10,  adjust=False).mean()
+    # df['i_ma'] = df['i'].ewm(span=10,  adjust=False).mean()
+
+
     # remove rows where v_avg is NaN
     df = df.dropna(subset=['v_ma', 'i_ma'])
 
@@ -104,7 +127,8 @@ def read_cv_data(filename, normalize = CGA_NORMALIZE, datadir = Path('voltammetr
 
     # normalize if needed
     if normalize:
-        offset = df['i_ma'][CGA_MIN_VOLTAGE:CGA_MAX_VOLTAGE].mean()
+        #print("Normalizing CV data...")
+        offset = df['i_ma'][NORMALIZE_MIN_VOLTAGE:NORMALIZE_MAX_VOLTAGE].mean()
 
         df['i_ma'] = df['i_ma'] - offset
 
@@ -130,8 +154,8 @@ def plot_cv_curve(df, ax, label=None):
     # plt.legend()
 
 
-def compute_caff_response(v, i, vmin=PEAK_DETECTION_MIN, vmax=PEAK_DETECTION_MAX):
-    """ Computes the caffeine response from the CV data.
+def compute_area_response(v, i, vmin, vmax):
+    """ Computes the response from the CV data.
     The response is computed as the area under the curve of the current vs voltage plot.
     """
 
@@ -144,66 +168,179 @@ def compute_caff_response(v, i, vmin=PEAK_DETECTION_MIN, vmax=PEAK_DETECTION_MAX
     area = simpson(y=i[start:end], x=v[start:end])
 
     return area
+def plot_cv_curves(df_train, df_test, CAFF_PEAK_DETECTION_MIN, CAFF_PEAK_DETECTION_MAX, CGA_BOUNDS, NORMALIZE):
+    """
+    Plots CV curves for all samples in df_train and df_test.
+    """
+    fig, ax = plt.subplots(1,1,figsize=(6, 5))
 
-if __name__ == "__main__":
-    df = getData()
+    data = []
+    for i, sample in df_train.iterrows():
+        #for j in range(1, 4):
+            #cv = read_cv_data(sample[f'cv_data{j}'])
+            cv = read_cv_data(sample['cv_data'], normalize=NORMALIZE)
+            data.append({
+                'Name': f'{sample["Name"]}',
+                'x' : cv.index,
+                'i_ma': cv['i_ma'].to_numpy()
+            })
+    for i, sample in df_test.iterrows():
+        for j in range(1, 4):
+            #cv = read_cv_data(sample[f'cv_data{j}'])
+            cv = read_cv_data(sample['cv_data'], normalize = NORMALIZE)
+            data.append({
+                'Name': f'{sample["Name"]}',
+                'x' : cv.index,
+                'i_ma': cv['i_ma'].to_numpy()
+            })
+
+
+
+    cmap = mplt.colormaps['copper']
+    num_lines = len(data)
+    colors = [cmap(i / num_lines) for i in range(num_lines)]
+
+    for i, cv in enumerate(data):
+        ax.plot(cv['x'], cv['i_ma'], color = colors[i],
+                ms=1,
+                label=cv['Name'], lw=1, alpha=0.5)
+
+    ax.axvspan(CGA_BOUNDS[0], CGA_BOUNDS[1], color='blue', alpha=0.3)
+    ax.annotate('CGA Detection Area',
+                xy=(CGA_BOUNDS[0] + (CGA_BOUNDS[1] - CGA_BOUNDS[0]) / 2, 250),
+                xycoords='data', fontsize=10,
+                rotation=90, color='black',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.5),
+                ha='center')
+
+    ax.axvspan(CAFF_PEAK_DETECTION_MIN, CAFF_PEAK_DETECTION_MAX, color='green', alpha=0.3)
+    ax.annotate('Caffeine Detection Area',
+                xy=(CAFF_PEAK_DETECTION_MIN + (CAFF_PEAK_DETECTION_MAX - CAFF_PEAK_DETECTION_MIN) / 2, 250),
+                xycoords='data', fontsize=10,
+                rotation=90, color='black',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.5),
+                ha='center')
+
+    ax.axvspan(NORMALIZE_MIN_VOLTAGE, NORMALIZE_MAX_VOLTAGE, color='red', alpha=0.3)
+    ax.annotate('Normalization Area',
+                xy=(NORMALIZE_MIN_VOLTAGE + (NORMALIZE_MAX_VOLTAGE - NORMALIZE_MIN_VOLTAGE) / 2, 250),
+                xycoords='data', fontsize=10,
+                rotation=90, color='black',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.5),
+                ha='center')
+
+    ax.set_xlim(0,1.90)
+    ax.yaxis.set_major_locator(mplt.ticker.MultipleLocator(100))
+    ax.yaxis.set_minor_locator(mplt.ticker.MultipleLocator(25))
+    ax.xaxis.set_major_locator(mplt.ticker.MultipleLocator(0.25))
+    ax.xaxis.set_minor_locator(mplt.ticker.MultipleLocator(0.25/5))
+
+    plt.xlabel('Voltage (V)')
+    plt.ylabel('Current (uA)')
+    plt.tight_layout()
+    plt.grid()
+    plt.savefig('cv_samples.pdf', dpi=300)
+
+
+def setup_mplt():
+    # increase matplotlib font size
+    plt.rcParams.update({'font.size': 12})
+    mplt.rcParams['axes.titlesize'] = 14
+    mplt.rcParams['axes.labelsize'] = 14
+    mplt.rcParams['xtick.labelsize'] = 12
+    mplt.rcParams['ytick.labelsize'] = 12
+    mplt.rcParams['legend.fontsize'] = 12
+    mplt.rcParams['figure.titlesize'] = 16
+    mplt.rcParams['figure.figsize'] = (10, 6)
+    mplt.rcParams['figure.dpi'] = 100
+    mplt.rcParams['savefig.dpi'] = 300
+    mplt.rcParams['savefig.bbox'] = 'tight'
+    mplt.rcParams['savefig.transparent'] = True
+    mplt.rcParams['savefig.format'] = 'pdf'
+def lr(x, y):
+    """ Returns a linear regression model for the given x and y data.
+    """
+    model = LinearRegression()
+    model.fit(x.values.reshape(-1, 1), y.values)
+    #pred_y = model.predict(x.values.reshape(-1, 1))
+
+    # predict from zero to double max x
+    #x_range = np.linspace(0, x.max() * 2, num=100)
+    x_range = x.values
+    pred_y = model.predict(x_range.reshape(-1, 1))
+    #pred_y = model.predict(x.values.reshape(-1, 1))
+    return x_range, pred_y, r2_score(y, model.predict(x.values.reshape(-1,1))), model.intercept_, model.coef_[0]
+def add_regression(ax, x, y):
+    """ Adds a linear regression line to the given axes.
+    """
+    pred_x, pred_y, r2, intercept, slope = lr(x, y)
+    ax.plot(pred_x, pred_y, color='red', label='Linear Regression', lw=2)
+
+    # slope from model
+    # ax.annotate(f'y = {slope:.6f}x + {intercept:.3f} (R² = {r2:.2f})',
+    #             xy=(0.5, 0.96), xycoords='axes fraction', fontsize=10,
+    #             bbox=dict(boxstyle='round', facecolor='white', alpha=0.5))
+
+def build_caff_model(df_train):
+
+    pred_x, pred_y, r2, intercept, slope = lr(df_train['SPE_area_norm'], df_train['HPLC_Caff'])
+    df_train['SPE_Caff'] = df_train['SPE_area_norm'] * slope + intercept
+    df_train['SPE_Caff_err'] = df_train['SPE_Caff'] - df_train['HPLC_Caff']
+    df_train['SPE_Caff_err_pct'] = (df_train['SPE_Caff'] - df_train['HPLC_Caff']) / df_train['HPLC_Caff'] * 100
+
+    return pred_x, pred_y, r2, intercept, slope, df_train
+
+def build_cga_model(df_train):
+
+    pred_x, pred_y, r2, intercept, slope = lr(df_train['SPE_cga_area'], df_train['HPLC_CGA'])
+    df_train['SPE_CGA'] = df_train['SPE_cga_area'] * slope + intercept
+    df_train['SPE_CGA_err'] = df_train['SPE_CGA'] - df_train['HPLC_CGA']
+    df_train['SPE_CGA_err_pct'] = (df_train['SPE_CGA'] - df_train['HPLC_CGA']) / df_train['HPLC_CGA'] * 100
+
+    return pred_x, pred_y, r2, intercept, slope, df_train
+
+def apply_caff_model(df_test, intercept, slope):
+    df_test['SPE_Caff'] = df_test['SPE_area_norm'] * slope + intercept
+    df_test['SPE_Caff_err'] = df_test['SPE_Caff'] - df_test['HPLC_Caff']
+    df_test['SPE_Caff_err_pct'] = (df_test['SPE_Caff'] - df_test['HPLC_Caff']) / df_test['HPLC_Caff'] * 100
+    return df_test
+
+def apply_cga_model(df_test, intercept, slope):
+    df_test['SPE_CGA'] = df_test['SPE_cga_area'] * slope + intercept
+    df_test['SPE_CGA_err'] = df_test['SPE_CGA'] - df_test['HPLC_CGA']
+    df_test['SPE_CGA_err_pct'] = (df_test['SPE_CGA'] - df_test['HPLC_CGA']) / df_test['HPLC_CGA'] * 100
+    return df_test
+
+def build_model_data(CAFF_PEAK_DETECTION_MIN, CAFF_PEAK_DETECTION_MAX, CGA_BOUNDS, NORMALIZE):
+
+    train = """Alabaster Colombian Decaf
+Alabaster Colombian Decaf + 200 ppm Caf
+Alabaster Colombian Decaf + 400 ppm Caf
+Alabaster Colombian Decaf + 600 ppm Caf
+Alabaster Colombian Decaf + 800 ppm Caf
+FRC Decaf Colombian, med roast IH
+FRC Swiss Water Decaf Colombian, med roast IH
+FRC Sumatra medium roast
+FRC Kenya AA, medium roast IH
+FRC ROBUSTA Brazil, medium roast IH
+FRC Brazil Cerrado, medium roast IH
+FRC Brazil Cerrado, medium roast IH- High BR
+FRC Brazil Cerrado, medium roast IH- High BR, 2x dilute""".split('\n')
+
+    df = getRawData()
     df.sort_values(by='HPLC_Caff', inplace=True)
-    df_train = df[df['Name'].str.contains('Alabaster Colombian Decaf') ]
-    df_test = df[~df['Name'].str.contains('Alabaster Colombian Decaf')]
+
+    #df_train = df[ (df['Name'].str.contains('Alabaster Colombian Decaf') | df['Name'].str.contains('FRC')) ]
+    #df_test = df[~(df['Name'].str.contains('Alabaster Colombian Decaf') | df['Name'].str.contains('FRC'))]
+
+    df_train = df[df['Name'].isin(train)]
+    df_test = df[~df['Name'].isin(train)]
     df = None
 
-    if 0:
-        fig, ax = plt.subplots(1,1,figsize=(10, 6))
-
-        data = []
-        for name in ["Alabaster Colombian Decaf",
-                    "Alabaster Colombian Decaf + 400 ppm Caf",
-                    'Alabaster Colombian Decaf + 800 ppm Caf']:
-
-            sample = df[ df['Name'] == name]
-
-            for i in range(1, 4):
-                cv = read_cv_data(sample[f'cv_data{i}'].iloc[0])
-
-                data.append({
-                    'Name': f'{name}',
-                    'x' : cv.index,
-                    'i_ma': cv['i_ma'].to_numpy()
-                })
-
-        cmap = mplt.colormaps['copper']
-        num_lines = len(data)
-        colors = [cmap(i / num_lines) for i in range(num_lines)]
-
-        for i, cv in enumerate(data):
-            ax.plot(cv['x'], cv['i_ma'], color = colors[i], label=cv['Name'], lw=2, alpha=0.7)
-
-        plt.axvspan(PEAK_DETECTION_MIN, PEAK_DETECTION_MAX, color='green', alpha=0.3)
-
-        # plt.title(title if title else 'CV Curve')
-        plt.xlabel('Voltage (V)')
-        plt.ylabel('Current (uA)')
-        plt.grid()
-        plt.legend()
-
-
-        plt.show()
-
-        exit()
-
-    def mk_response(row, col='cv_data1', normalize=CGA_NORMALIZE):
+    def mk_response(row, normalize, vmin, vmax, col='cv_data1'):
         cv = read_cv_data(row[col], normalize=normalize)
-        return compute_caff_response(cv.index, cv['i_ma'].to_numpy())
-
-    def mk_r2(row, col='cv_data1', normalize=CGA_NORMALIZE):
-        cv = read_cv_data(row[col], normalize=normalize)
-        from Regression import find_peak_response
-        return find_peak_response(cv.index, cv['i_ma'].to_numpy())[1]   
-
-    #df['SPE_area_method'] = df.apply(partial(mk_response, normalize=False), axis=1)
-    #df['SPE_peak_method'] = df.apply(partial(mk_r2, normalize=False), axis=1)
-    df_train['SPE_area_norm'] = df_train.apply(partial(mk_response, normalize=True), axis=1)
-    #df['SPE_peak_norm'] = df.apply(partial(mk_r2, normalize=True), axis=1)
+        return compute_area_response(cv.index, cv['i_ma'].to_numpy(),
+                                    vmin, vmax)
 
     results = []
     for i, row in df_train.iterrows():
@@ -212,13 +349,15 @@ if __name__ == "__main__":
                 {
                     'Name': row['Name'],
                     'HPLC_Caff': row['HPLC_Caff'],
-                    #'HPLC_CGA': row['HPLC_CGA'],
-                    'SPE_area_norm': mk_response(row, col=f'cv_data{k}', normalize=True),                    
+                    'HPLC_CGA': row['HPLC_CGA'],
+                    'SPE_area_norm': mk_response(row, normalize=NORMALIZE, vmin = CAFF_PEAK_DETECTION_MIN, vmax = CAFF_PEAK_DETECTION_MAX, col=f'cv_data{k}'),
+                    'SPE_cga_area': mk_response(row, normalize=NORMALIZE, vmin = CGA_BOUNDS[0], vmax = CGA_BOUNDS[1], col=f'cv_data{k}'),
+                    'cv_data': row[f'cv_data{k}'],
                 }
             )
 
     df_train = pd.DataFrame(results)
-    
+
     results = []
     for i, row in df_test.iterrows():
         for k in range(1, 4):
@@ -226,97 +365,170 @@ if __name__ == "__main__":
                 {
                     'Name': row['Name'],
                     'HPLC_Caff': row['HPLC_Caff'],
-                    #'HPLC_CGA': row['HPLC_CGA'],
-                    'SPE_area_norm': mk_response(row, col=f'cv_data{k}', normalize=True),                    
+                    'HPLC_CGA': row['HPLC_CGA'],
+                    'SPE_area_norm': mk_response(row, normalize=NORMALIZE, vmin = CAFF_PEAK_DETECTION_MIN, vmax = CAFF_PEAK_DETECTION_MAX, col=f'cv_data{k}'),
+                    'SPE_cga_area': mk_response(row, normalize=NORMALIZE, vmin = CGA_BOUNDS[0], vmax = CGA_BOUNDS[1], col=f'cv_data{k}'),
+                    'cv_data': row[f'cv_data{k}'],
                 }
             )
 
     df_test = pd.DataFrame(results)
-    
+    return df_train, df_test
 
-    def lr(x, y):
+def caff_sweep():
+    # best result:
+    # CAFF_PEAK_DETECTION_MIN= 1.23, CAFF_PEAK_DETECTION_MAX= 1.33, Train SPE r2: 0.8594, Test SPE r2: 0.1806,
+    for CAFF_PEAK_DETECTION_MIN in [1.1 + i * 0.01 for i in range(0, 50)]:
+        for CAFF_PEAK_DETECTION_MAX in [1.2 + i * 0.01 for i in range(0, 50)]:
+            if CAFF_PEAK_DETECTION_MAX - CAFF_PEAK_DETECTION_MIN < 0.1:
+                continue
 
-        """ Returns a linear regression model for the given x and y data.
-        """
-        model = LinearRegression()
-        model.fit(x.values.reshape(-1, 1), y.values)       
-        #pred_y = model.predict(x.values.reshape(-1, 1))
 
-        # predict from zero to double max x
-        x_range = np.linspace(0, x.max() * 2, num=100)
-        pred_y = model.predict(x_range.reshape(-1, 1))
-        return x_range, pred_y, r2_score(y, model.predict(x.values.reshape(-1,1))), model.intercept_, model.coef_[0]
-           
-    def add_regression(ax, x, y):
-        """ Adds a linear regression line to the given axes.
-        """
-        pred_x, pred_y, r2, intercept, slope = lr(x, y)
-        ax.plot(pred_x, pred_y, color='red', label='Linear Regression', lw=2)
+            df_train, df_test = build_model_data(CAFF_PEAK_DETECTION_MIN, CAFF_PEAK_DETECTION_MAX, CGA_BOUNDS=(0.10, 0.20), NORMALIZE=True)
+            pred_x, pred_y, r2, intercept, slope, df_train = build_caff_model(df_train)
+            df_test = apply_caff_model(df_test, intercept, slope)
 
-        # slope from model
-        ax.annotate(f'y = {slope:.6f}x + {intercept:.3f} (R² = {r2:.2f})',
-                    xy=(0.05, 0.90), xycoords='axes fraction', fontsize=10,
-                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.5))
+            # print(tabulate.tabulate(df_train, headers='keys', tablefmt='pipe', showindex=False, floatfmt=".3f",
+            #                     numalign="right", stralign="left"))
 
-    pred_x, pred_y, r2, intercept, slope = lr(df_train['SPE_area_norm'], df_train['HPLC_Caff'   ])
-    df_train['SPE_Caff'] = df_train['SPE_area_norm'] * slope + intercept
-    df_train['SPE_Caff_err'] = df_train['SPE_Caff'] - df_train['HPLC_Caff']
-    df_train['SPE_Caff_err_pct'] = (df_train['SPE_Caff'] - df_train['HPLC_Caff']) / df_train['HPLC_Caff'] * 100
-    
-    df_test['SPE_Caff'] = df_test['SPE_area_norm'] * slope + intercept
-    df_test['SPE_Caff_err'] = df_test['SPE_Caff'] - df_test['HPLC_Caff']
-    df_test['SPE_Caff_err_pct'] = (df_test['SPE_Caff'] - df_test['HPLC_Caff']) / df_test['HPLC_Caff'] * 100
+            test_r2 = r2_score(df_test['HPLC_Caff'], df_test['SPE_Caff'])
 
-    print(tabulate.tabulate(df_train, headers='keys', tablefmt='pipe', showindex=False, floatfmt=".3f",
-                           numalign="right", stralign="left"))
-    
-    print(tabulate.tabulate(df_test, headers='keys', tablefmt='pipe', showindex=False, floatfmt=".3f",
-                           numalign="right", stralign="left"))
-    
-    # print mean std min max for the SPE_Caff_err_pct column
-    print(f"Train SPE Caff Error (%): mean={df_train['SPE_Caff_err_pct'].mean():.2f}, std={df_train['SPE_Caff_err_pct'].std():.2f}, min={df_train['SPE_Caff_err_pct'].min():.2f}, max={df_train['SPE_Caff_err_pct'].max():.2f}")
-    print(f"Test SPE Caff Error (%): mean={df_test['SPE_Caff_err_pct'].mean():.2f}, std={df_test['SPE_Caff_err_pct'].std():.2f}, min={df_test['SPE_Caff_err_pct'].min():.2f}, max={df_test['SPE_Caff_err_pct'].max():.2f}")
+            #if test_r2> 0.12:
+            if test_r2> 0.239:
+            #if r2> 0.3:
+                print(f'CAFF_PEAK_DETECTION_MIN={CAFF_PEAK_DETECTION_MIN:5.2f}, CAFF_PEAK_DETECTION_MAX={CAFF_PEAK_DETECTION_MAX:5.2f}, ', end="")
+                print(f"Train SPE r2: {r2:6.4f}, Test SPE r2: {test_r2:6.4f}, ")
 
-    print(f"Train SPE Caff Error (ppm): mean={df_train['SPE_Caff_err'].mean():.2f}, std={df_train['SPE_Caff_err'].std():.2f}, min={df_train['SPE_Caff_err'].min():.2f}, max={df_train['SPE_Caff_err'].max():.2f}")
-    print(f"Test SPE Caff Error (ppm): mean={df_test['SPE_Caff_err'].mean():.2f}, std={df_test['SPE_Caff_err'].std():.2f}, min={df_test['SPE_Caff_err'].min():.2f}, max={df_test['SPE_Caff_err'].max():.2f}")
+
+            # print(tabulate.tabulate(df_test, headers='keys', tablefmt='pipe', showindex=False, floatfmt=".3f",
+            #                        numalign="right", stralign="left"))
+
+
+            # exit()
+
+def cga_sweep():
+    # best result:
+    # CGA_MIN= 0.10, CGA_MAX= 0.20 Train SPE CGA r2: 0.3686, Test SPE CGA r2: -0.2519
+    CAFF_PEAK_DETECTION_MIN = 1.23
+    CAFF_PEAK_DETECTION_MAX = 1.33
+    for CGA_MIN in [0 + i * 0.01 for i in range(0, 80)]:
+        for CGA_MAX in [.2 + i * 0.01 for i in range(0, 80)]:
+            if CGA_MAX - CGA_MIN < 0.1:
+                continue
+
+
+            df_train, df_test = build_model_data(CAFF_PEAK_DETECTION_MIN, CAFF_PEAK_DETECTION_MAX, CGA_BOUNDS=(CGA_MIN, CGA_MAX), NORMALIZE=True)
+            pred_x, pred_y, r2, intercept, slope, df_train = build_cga_model(df_train)
+            df_test = apply_cga_model(df_test, intercept, slope)
+
+            # print(tabulate.tabulate(df_train, headers='keys', tablefmt='pipe', showindex=False, floatfmt=".3f",
+            #                         numalign="right", stralign="left"))
+
+            test_r2 = r2_score(df_test['HPLC_CGA'], df_test['SPE_CGA'])
+
+            #if test_r2> 0.12:
+            if test_r2>= 0.3435:
+                print(f'CGA_MIN={CGA_MIN:5.2f}, CGA_MAX={CGA_MAX:5.2f} ', end="")
+                print(f"Train SPE CGA r2: {r2:6.4f}, Test SPE CGA r2: {test_r2:6.4f}")
+
+            # print(tabulate.tabulate(df_test, headers='keys', tablefmt='pipe', showindex=False, floatfmt=".3f",
+            #                        numalign="right", stralign="left"))
+
+
+
+if __name__ == "__main__":
+
+
+    setup_mplt()
+
+
+    #caff_sweep()
+    #cga_sweep()
+    #exit()
+
+    bounds = {
+        'CAFF_PEAK_DETECTION_MIN': 1.2,
+        'CAFF_PEAK_DETECTION_MAX': 1.6,
+        'CGA_BOUNDS': (0.10, 0.35),
+        'NORMALIZE': True
+    }
+
+    df_train, df_test = build_model_data(**bounds)
+    pred_x, pred_y, r2, intercept, slope, df_train = build_caff_model(df_train)
+    df_test = apply_caff_model(df_test, intercept, slope)
+
+    print("Train SPE Caff r2:", r2)
+    print("Test  SPE Caff r2:", r2_score(df_test['HPLC_Caff'], df_test['SPE_Caff']))
+
+
+    pred_x, pred_y, r2, intercept, slope, df_train = build_cga_model(df_train)
+    df_test = apply_cga_model(df_test, intercept, slope)
+
+    print("Train SPE CGA  r2:", r2)
+    print("Test  SPE CGA  r2:", r2_score(df_test['HPLC_CGA'], df_test['SPE_CGA']))
 
     if 1:
-        #fig, axes = plt.subplots(2,2,figsize=(12, 12))
-        fig, axes = plt.subplots(1,1,figsize=(12, 5))
-        def make_plot(ax, x, y, label):
-            ax.scatter(x, y,  color='blue', label=label)
-            add_regression(ax, x, y)
+        plot_cv_curves(df_train, df_test, **bounds)
+        #plt.show()
+        #exit()
 
-            ax.set_xlabel('SPE Caffeine Response (uA.V)')
-            ax.set_ylabel('HPLC Caffeine (ppm)')
-            ax.set_title(f'{label} vs HPLC Caffeine')
-            ax.set_ylim(-500, 1400)
-            ax.set_xlim(0, x.max() * 1.2)
-            ax.grid()
-            #ax.legend(loc='lower left')
+    if 1:
+        # THIS PLOTS THE REGRESSION OF SPE CAFFEINE RESPONSE (TRAINING) VS HPLC CAFFEINE
+
+
+        #fig, axes = plt.subplots(2,2,figsize=(12, 12))
+        fig, axes = plt.subplots(1,2,figsize=(12, 5))
 
         #make_plot(axes[0,0], df['SPE_area_method'], 'SPE (Integral Method)')
         #make_plot(axes[0,1], df['SPE_area_norm'], 'SPE (Integral Method Normalized)')
-        make_plot(axes, df_train['SPE_area_norm'], df_train['HPLC_Caff'], 'SPE (training)')
+        axes[0].scatter(df_test['SPE_area_norm'], df_test['HPLC_Caff'], color='orange', label='Test', alpha=0.5)
+        axes[0].scatter(df_train['SPE_area_norm'], df_train['HPLC_Caff'], color = 'blue', label='Model', alpha=0.5)
+
+        add_regression(axes[0], df_train['SPE_area_norm'], df_train['HPLC_Caff'])
+        axes[0].grid()
+        axes[0].set_xlabel('SPE Caffeine Response (uA.V)')
+        axes[0].set_ylabel('HPLC Caffeine (ppm)')
+        #axes[0].set_title('SPE Caffeine vs HPLC Caffeine')
+        #axes[0].set_ylim(0, 1400)
+        #axes[0].set_xlim(0, 120)
+        axes[0].legend(loc='upper left')
+
+        axes[1].scatter(df_test['SPE_cga_area'], df_test['HPLC_CGA'], color='orange', label='Test', alpha=0.5)
+        axes[1].scatter(df_train['SPE_cga_area'], df_train['HPLC_CGA'], color='blue', label='Model', alpha=0.5)
+        add_regression(axes[1], df_train['SPE_cga_area'], df_train['HPLC_CGA'])
+
+        axes[1].set_xlabel('SPE CGA Response (uA.V)')
+        axes[1].set_ylabel('HPLC CGA (ppm)')
+        #axes[1].set_xlim(-10, -0)
+        #axes[1].set_ylim(0, 1600)
+        axes[1].grid()
+        #axes[1].set_title(f'{label} vs HPLC CGA')
+        #axes[1].set_ylim(-500, 1400)
+
         #make_plot(axes[1,0], df['SPE_peak_method'], 'SPE (Peak Method)')
         #make_plot(axes[1,1], df['SPE_peak_norm'], 'SPE (Peak Method Normalized)')
 
         #make_plot(axes[1], df_test['SPE_area_norm'], df_test['HPLC_Caff'], 'SPE (test)')
-
-
-    if 0:
-        fig, ax = plt.subplots(1, 1, figsize=(4, 5))
-        ax.violinplot([df_train['SPE_Caff_err_pct'], df_test['SPE_Caff_err_pct']], showmeans=True, widths=0.5)
-        #ax.set_xticklabels(['Train', 'Test'])
-        ax.set_xticks([1, 2], labels=['Train', 'Test'])
-        ax.set_title('SPE Caffeine vs HPLC Error')
-        #ax.set_ylim(-250,250)
-        ax.set_ylabel('Error Percentage (%)')
-        
-
         plt.tight_layout()
-        #plt.savefig('caff_response.pdf', dpi=300)
-    plt.show()
+        plt.savefig('spe_models.pdf', dpi=300)
+
+
+
+    if 1:
+        fig, ax = plt.subplots(1, 1, figsize=(6, 5))
+        ax.violinplot([df_train['SPE_Caff_err_pct'], df_test['SPE_Caff_err_pct'], df_train['SPE_CGA_err_pct'], df_test['SPE_CGA_err_pct']], showmeans=True, widths=0.5)
+        #ax.set_xticklabels(['Train', 'Test'])
+        ax.set_xticks([1, 2, 3, 4], labels=['Caffeine Model', 'Caffeine Test', 'CGA Model', 'CGA Test'])
+        #ax.set_title('SPE vs HPLC Error')
+        ax.set_ylim(-100,400)
+        ax.set_ylabel('Error Percentage (%)')
+        ax.yaxis.set_major_locator(mplt.ticker.MultipleLocator(50))
+        ax.yaxis.set_minor_locator(mplt.ticker.MultipleLocator(10))
+        ax.grid()
+        plt.tight_layout()
+        plt.show()
+        plt.savefig('error_violin.pdf', dpi=300)
+    #plt.show()
 
     # df.drop(columns=['cv_data1', 'cv_data 2', 'cv_data 3'], inplace=True)
 
