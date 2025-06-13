@@ -13,6 +13,7 @@ from pathlib import Path
 
 from functools import cache
 
+from util import read_cv_data, read_cv_data_bins, setup_mplt
 
 #0.85 R2
 # CAFF_PEAK_DETECTION_MIN = 1.2  # Minimum voltage for peak detection
@@ -25,163 +26,6 @@ NORMALIZE_MAX_VOLTAGE = 0.75
 
 #NORMALIZE = True
 
-@cache
-def getRawData(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA', use_cache=True):
-    """ Returns:
-                                                    Name Brew date  HPLC_Caff  HPLC_CGA     cv_data1    cv_data 2        cv_data 3
-    0                           Alabaster Colombian Decaf   5/17/25       52.0     920.0  aladec1.txt  aladec2.txt  aladec3edge.txt
-    1               Alabaster Colombian 1/4 Reg 3/4 Decaf   5/17/25      260.0     930.0  ala1QC1.txt  ala1QC2.txt      ala1QC3.txt
-    2               Alabaster Colombian 1/2 Reg 1/2 Decaf   5/17/25      380.0     900.0   alaHC1.txt   alaHC2.txt       alaHC3.txt
-    3               Alabaster Colombian 3/4 Reg 1/4 Decaf   5/17/25      650.0    1000.0  ala3QC1.txt  ala3QC2.txt      ala3QC3.txt
-    4                         Alabaster Colombian Regular   5/17/25      820.0     990.0  alareg1.txt  alareg2.txt  alareg3edge.txt
-    5             Alabaster Colombian Decaf + 200 ppm Caf   5/17/25      320.0     900.0  alaD2p1.txt  alaD2p2.txt      alaD2p3.txt
-    6             Alabaster Colombian Decaf + 400 ppm Caf   5/17/25      580.0     920.0  alaD4p1.txt  alaD4p2.txt      alaD4p3.txt
-    7             Alabaster Colombian Decaf + 600 ppm Caf   5/17/25      720.0     890.0  alaD6p1.txt  alaD6p2.txt      alaD6p3.txt
-    8             Alabaster Colombian Decaf + 800 ppm Caf   5/17/25      920.0     880.0  alaD8p1.txt  alaD8p2.txt      alaD8p3.txt
-    9                   FRC Decaf Colombian, med roast IH   5/16/25       75.0     600.0       A1.txt       A2.txt       A3edge.txt
-    10        FRC Sugarcame Decaf Colombian, med roast IH   5/16/25       60.0     520.0       B1.txt       B2.txt       B3edge.txt
-    11      FRC Swiss Water Decaf Colombian, med roast IH   5/16/25       40.0     420.0       C1.txt       C2.txt       C3edge.txt
-    12                           FRC Mexican medium roast   5/16/25      820.0     490.0       D1.txt       D2.txt           D3.txt
-    13                           FRC Sumatra medium roast   5/16/25      830.0     360.0       E1.txt       E2.txt           E3.txt
-    14                          FRC Colombia medium roast   5/16/25      770.0     400.0       F1.txt       F2.txt           F3.txt
-    15                      FRC Kenya AA, medium roast IH   5/17/25      840.0     830.0       G1.txt       G2.txt           G3.txt
-    16           FRC Ethiopia Yirgacheffe, light roast IH   5/17/25      770.0    1100.0       H1.txt       H2.txt           H3.txt
-    17                FRC ROBUSTA Brazil, medium roast IH   5/17/25     1220.0     530.0       I1.txt       I2.txt           I3.txt
-    18                 FRC Brazil Cerrado, light roast IH   5/17/25      870.0     880.0       J1.txt       J2.txt           J3.txt
-    19                FRC Brazil Cerrado, medium roast IH   5/17/25      850.0     440.0       K1.txt       K2.txt           K3.txt
-    20                  FRC Brazil Cerrado, dark roast IH   5/17/25      860.0      94.0       L1.txt       L2.txt           L3.txt
-    21       FRC Brazil Cerrado, medium roast IH- High BR   5/17/25     1100.0     630.0       M1.txt       M2.txt           M3.txt
-    22  FRC Ethiopia Yirgacheffe, light roast IH- High BR   5/17/25     1060.0    1580.0       N1.txt       N2.txt           N3.txt
-    23  FRC Brazil Cerrado, medium roast IH- High BR, ...   5/17/25      640.0     300.0       O1.txt       O2.txt           O3.txt
-    24  FRC Ethiopia Yirgacheffe, light roast IH- High...   5/17/25      570.0     800.0       P1.txt       P2.txt           P3.txt
-    25                    Dunkin Original Blend, 5/22 8am   5/22/25      530.0     360.0  dunkin1.txt  dunkin2.txt      dunkin3.txt
-    26                McDonald's Regular Coffee, 5/22 8am   5/22/25      520.0     340.0  mccafe1.txt  mccafe2.txt      mccafe3.txt
-    27  Sheetz Classic Coffee (100% arabica), 12oz ref...   5/22/25      420.0     270.0  sheetz1.txt  sheetz2.txt      sheetz3.txt
-    28               Starbucks Pike Place Roast, 5/22 8am   5/22/25      680.0     130.0  sbpike1.txt  sbpike2.txt      sbpike3.txt
-    """
-    # Construct the URL to export the *first* sheet as CSV.
-    url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv'
-
-    if Path('raw_data_cache.pkl').exists() and use_cache:
-        # load from cache
-        df = pd.read_pickle('raw_data_cache.pkl')
-        return df
-
-    raise("Not using cache!")
-    df = pd.read_csv(url)
-
-    # keep columns
-    df = df[['Name ', 'Brew date ', '(ppm) Caff Avg', '(ppm) CGA Avg', 'Voltammetry data 1', 'data 2', 'data 3']]
-
-    # rename columns
-    df.columns = ['Name', 'Brew date', 'HPLC_Caff', 'HPLC_CGA', 'cv_data1', 'cv_data2', 'cv_data3']
-
-    # drop NA rows
-    df = df.dropna()
-
-    if use_cache:
-        df.to_pickle('raw_data_cache.pkl')
-
-    return df
-
-@cache
-def read_cv_data(filename, normalize = None, datadir = Path('voltammetry-files')):
-    """ Reads a CV data file and returns a DataFrame with the data.
-    """
-
-    if normalize is None:
-        raise ValueError("normalize must be True or False")
-    df = pd.read_csv(datadir / filename, sep=',', header=None, names=['t', 'v', 'i'], index_col='t')
-
-
-    # 45 seconds are preconditioning
-    # then it takes a second for the current to stabilize
-    # ignore first 46 seconds as preconditioning
-    df = df.loc[46:]
-
-    #find max applied voltage
-    max_voltage = df['v'].max()
-
-    # remove reduction part of the curve
-    # find index of max
-    max_index = df['v'].idxmax()
-    # keep only data before max
-    df = df.loc[:max_index]
-
-    df['v_ma'] = df['v'].rolling(window=10, center=True).mean()
-    df['i_ma'] = df['i'].rolling(window=10, center=True).mean()
-
-    # remove rows where v_avg is NaN
-    df = df.dropna(subset=['v_ma', 'i_ma'])
-
-    # reindex to voltage
-    df = df.set_index('v_ma')
-    df.drop(columns=['v', 'i'], inplace=True)
-
-    # normalize if needed
-    if normalize:
-        #print("Normalizing CV data...")
-
-        area = simpson(y=df['i_ma'], x=df.index)
-
-        #offset = df['i_ma'][NORMALIZE_MIN_VOLTAGE:NORMALIZE_MAX_VOLTAGE].mean()
-        #df['i_ma'] = df['i_ma'] - offset
-
-        df['i_ma'] = df['i_ma'] / area
-
-    return df
-
-@cache
-def read_cv_data_bins(filename, normalize = None, datadir = Path('voltammetry-files')):
-    """ Reads a CV data file and returns a DataFrame with the data.
-    """
-
-    if normalize is None:
-        raise ValueError("normalize must be True or False")
-    df = pd.read_csv(datadir / filename, sep=',', header=None, names=['t', 'v', 'i'], index_col='t')
-
-    # 45 seconds are preconditioning
-    # then it takes a second for the current to stabilize
-    # ignore first 46 seconds as preconditioning
-    df = df.loc[46:]
-
-    #find max applied voltage
-    #max_voltage = df['v'].max()
-
-    # remove reduction part of the curve
-    # find index of max
-    max_index = df['v'].idxmax()
-    # keep only data before max
-    df = df.loc[:max_index]
-
-
-
-
-    # remove rows where v is NaN
-    df = df.dropna(subset=['v', 'i'])
-
-    # reindex to voltage
-    df = df.set_index('v')
-
-
-    # create 16 bins for voltage ranges
-    bins = np.linspace(0, 2.0, num=17)
-    
-    
-    x_vals = []
-    y_vals = []    
-    for i in range(len(bins)-1):
-        #print(f"{i:2d} {bins[i]:5.4f} : {bins[i+1]:5.4f}")
-        x_vals.append((bins[i] + bins[i+1]) / 2)
-        y_vals.append (df[bins[i]:bins[i+1]]['i'].mean())
-
-    df = pd.DataFrame(y_vals, index = x_vals, columns=['i'])
-
-    if normalize:
-        s = sum(y_vals)
-        df['i'] /= s
-        
-    return df
 def plot_cv_curve(df, ax, label=None):
     """ Plots the CV curve from a DataFrame.
     """
@@ -251,12 +95,12 @@ def plot_cv_curves(df_train, df_test, CAFF_PEAK_DETECTION_MIN, CAFF_PEAK_DETECTI
         ax.plot(cv['x'], cv['i_ma'], color = colors[i],
                 ms=1,
                 label=cv['Name'], lw=1, alpha=0.5)
-        
-        
-        # ax2.bar(cv['bins'].index, cv['bins']['i'], 
+
+
+        # ax2.bar(cv['bins'].index, cv['bins']['i'],
         #        width=2 / 16,
         #        color = colors[i], alpha=0.5)
-        
+
 
     ax.axvspan(CGA_BOUNDS[0], CGA_BOUNDS[1], color='blue', alpha=0.3)
     ax.annotate('CGA Detection Area',
@@ -382,13 +226,13 @@ FRC Brazil Cerrado, medium roast IH- High BR, 2x dilute""".split('\n')
 
     df = getRawData()
     df.sort_values(by='HPLC_Caff', inplace=True)
-    
+
     df_train = df[df['Name'].isin(train)]
     df_test = df[~df['Name'].isin(train)]
     df = None
 
     print(f"Train samples: {len(df_train)}, Test samples: {len(df_test)}")
-    
+
     def mk_response(row, normalize, vmin, vmax, col='cv_data1'):
         cv = read_cv_data(row[col], normalize=normalize)
         return compute_area_response(cv.index, cv['i_ma'].to_numpy(),
@@ -523,12 +367,12 @@ if __name__ == "__main__":
 
         plt.show()
 
-        
+
 
 
     pred_x, pred_y, r2, intercept, slope, df_train = build_caff_model(df_train)
     df_test = apply_caff_model(df_test, intercept, slope)
-  
+
 
     print("Train SPE Caff r2:", r2)
     print("Test  SPE Caff r2:", r2_score(df_test['HPLC_Caff'], df_test['SPE_Caff']))
