@@ -111,14 +111,6 @@ def read_cv_data(filename, normalize = None, datadir = Path('voltammetry-files')
     df['v_ma'] = df['v'].rolling(window=10, center=True).mean()
     df['i_ma'] = df['i'].rolling(window=10, center=True).mean()
 
-    # df['v_ma'] = df['v'].rolling(window=1, center=True).mean()
-    # df['i_ma'] = df['i'].rolling(window=1, center=True).mean()
-
-    # do emw rolling mean with a span of 10
-    # df['v_ma'] = df['v'].ewm(span=10,  adjust=False).mean()
-    # df['i_ma'] = df['i'].ewm(span=10,  adjust=False).mean()
-
-
     # remove rows where v_avg is NaN
     df = df.dropna(subset=['v_ma', 'i_ma'])
 
@@ -129,17 +121,67 @@ def read_cv_data(filename, normalize = None, datadir = Path('voltammetry-files')
     # normalize if needed
     if normalize:
         #print("Normalizing CV data...")
-        offset = df['i_ma'][NORMALIZE_MIN_VOLTAGE:NORMALIZE_MAX_VOLTAGE].mean()
 
-        df['i_ma'] = df['i_ma'] - offset
+        area = simpson(y=df['i_ma'], x=df.index)
 
+        #offset = df['i_ma'][NORMALIZE_MIN_VOLTAGE:NORMALIZE_MAX_VOLTAGE].mean()
+        #df['i_ma'] = df['i_ma'] - offset
 
-    # print(df)
-    # exit()
+        df['i_ma'] = df['i_ma'] / area
 
     return df
 
+@cache
+def read_cv_data_bins(filename, normalize = None, datadir = Path('voltammetry-files')):
+    """ Reads a CV data file and returns a DataFrame with the data.
+    """
 
+    if normalize is None:
+        raise ValueError("normalize must be True or False")
+    df = pd.read_csv(datadir / filename, sep=',', header=None, names=['t', 'v', 'i'], index_col='t')
+
+    # 45 seconds are preconditioning
+    # then it takes a second for the current to stabilize
+    # ignore first 46 seconds as preconditioning
+    df = df.loc[46:]
+
+    #find max applied voltage
+    #max_voltage = df['v'].max()
+
+    # remove reduction part of the curve
+    # find index of max
+    max_index = df['v'].idxmax()
+    # keep only data before max
+    df = df.loc[:max_index]
+
+
+
+
+    # remove rows where v is NaN
+    df = df.dropna(subset=['v', 'i'])
+
+    # reindex to voltage
+    df = df.set_index('v')
+
+
+    # create 16 bins for voltage ranges
+    bins = np.linspace(0, 2.0, num=17)
+    
+    
+    x_vals = []
+    y_vals = []    
+    for i in range(len(bins)-1):
+        #print(f"{i:2d} {bins[i]:5.4f} : {bins[i+1]:5.4f}")
+        x_vals.append((bins[i] + bins[i+1]) / 2)
+        y_vals.append (df[bins[i]:bins[i+1]]['i'].mean())
+
+    df = pd.DataFrame(y_vals, index = x_vals, columns=['i'])
+
+    if normalize:
+        s = sum(y_vals)
+        df['i'] /= s
+        
+    return df
 def plot_cv_curve(df, ax, label=None):
     """ Plots the CV curve from a DataFrame.
     """
@@ -186,7 +228,8 @@ def plot_cv_curves(df_train, df_test, CAFF_PEAK_DETECTION_MIN, CAFF_PEAK_DETECTI
             data.append({
                 'Name': f'{sample["Name"]}',
                 'x' : cv.index,
-                'i_ma': cv['i_ma'].to_numpy()
+                'i_ma': cv['i_ma'].to_numpy(),
+                'bins': sample['cv_bins']
             })
     for i, sample in df_test.iterrows():
         for j in range(1, 4):
@@ -195,19 +238,25 @@ def plot_cv_curves(df_train, df_test, CAFF_PEAK_DETECTION_MIN, CAFF_PEAK_DETECTI
             data.append({
                 'Name': f'{sample["Name"]}',
                 'x' : cv.index,
-                'i_ma': cv['i_ma'].to_numpy()
+                'i_ma': cv['i_ma'].to_numpy(),
+                'bins': sample['cv_bins']
             })
-
-
 
     cmap = mplt.colormaps['copper']
     num_lines = len(data)
     colors = [cmap(i / num_lines) for i in range(num_lines)]
 
+    # ax2= ax.twinx()
     for i, cv in enumerate(data):
         ax.plot(cv['x'], cv['i_ma'], color = colors[i],
                 ms=1,
                 label=cv['Name'], lw=1, alpha=0.5)
+        
+        
+        # ax2.bar(cv['bins'].index, cv['bins']['i'], 
+        #        width=2 / 16,
+        #        color = colors[i], alpha=0.5)
+        
 
     ax.axvspan(CGA_BOUNDS[0], CGA_BOUNDS[1], color='blue', alpha=0.3)
     ax.annotate('CGA Detection Area',
@@ -233,9 +282,9 @@ def plot_cv_curves(df_train, df_test, CAFF_PEAK_DETECTION_MIN, CAFF_PEAK_DETECTI
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.5),
                 ha='center')
 
-    ax.set_xlim(0,1.90)
-    ax.yaxis.set_major_locator(mplt.ticker.MultipleLocator(100))
-    ax.yaxis.set_minor_locator(mplt.ticker.MultipleLocator(25))
+    ax.set_xlim(0,2)
+    #ax.yaxis.set_major_locator(mplt.ticker.MultipleLocator(100))
+    #ax.yaxis.set_minor_locator(mplt.ticker.MultipleLocator(25))
     ax.xaxis.set_major_locator(mplt.ticker.MultipleLocator(0.25))
     ax.xaxis.set_minor_locator(mplt.ticker.MultipleLocator(0.25/5))
 
@@ -333,21 +382,13 @@ FRC Brazil Cerrado, medium roast IH- High BR, 2x dilute""".split('\n')
 
     df = getRawData()
     df.sort_values(by='HPLC_Caff', inplace=True)
-
-    #df_train = df[ (df['Name'].str.contains('Alabaster Colombian Decaf') | df['Name'].str.contains('FRC')) ]
-    #df_test = df[~(df['Name'].str.contains('Alabaster Colombian Decaf') | df['Name'].str.contains('FRC'))]
-
+    
     df_train = df[df['Name'].isin(train)]
     df_test = df[~df['Name'].isin(train)]
-
-    print(f"Train samples: {len(df_train)}, Test samples: {len(df_test)}")
-    #print(df_train[['Name', 'HPLC_Caff', 'HPLC_CGA']])
-
-    # print(df_test)
-    # exit()
-
     df = None
 
+    print(f"Train samples: {len(df_train)}, Test samples: {len(df_test)}")
+    
     def mk_response(row, normalize, vmin, vmax, col='cv_data1'):
         cv = read_cv_data(row[col], normalize=normalize)
         return compute_area_response(cv.index, cv['i_ma'].to_numpy(),
@@ -364,6 +405,7 @@ FRC Brazil Cerrado, medium roast IH- High BR, 2x dilute""".split('\n')
                     'SPE_area_norm': mk_response(row, normalize=NORMALIZE, vmin = CAFF_PEAK_DETECTION_MIN, vmax = CAFF_PEAK_DETECTION_MAX, col=f'cv_data{k}'),
                     'SPE_cga_area': mk_response(row, normalize=NORMALIZE, vmin = CGA_BOUNDS[0], vmax = CGA_BOUNDS[1], col=f'cv_data{k}'),
                     'cv_data': row[f'cv_data{k}'],
+                    'cv_bins': read_cv_data_bins(row[f'cv_data{k}'], normalize=NORMALIZE)
                 }
             )
 
@@ -380,6 +422,7 @@ FRC Brazil Cerrado, medium roast IH- High BR, 2x dilute""".split('\n')
                     'SPE_area_norm': mk_response(row, normalize=NORMALIZE, vmin = CAFF_PEAK_DETECTION_MIN, vmax = CAFF_PEAK_DETECTION_MAX, col=f'cv_data{k}'),
                     'SPE_cga_area': mk_response(row, normalize=NORMALIZE, vmin = CGA_BOUNDS[0], vmax = CGA_BOUNDS[1], col=f'cv_data{k}'),
                     'cv_data': row[f'cv_data{k}'],
+                    'cv_bins': read_cv_data_bins(row[f'cv_data{k}'], normalize=NORMALIZE)
                 }
             )
 
@@ -461,7 +504,7 @@ if __name__ == "__main__":
         'CAFF_PEAK_DETECTION_MIN': 1.2,
         'CAFF_PEAK_DETECTION_MAX': 1.6,
         'CGA_BOUNDS': (0.10, 0.35),
-        'NORMALIZE': False
+        'NORMALIZE': True
     }
 
     #Train SPE Caff r2: 0.3267832098681297
@@ -470,8 +513,22 @@ if __name__ == "__main__":
     #Test  SPE CGA  r2: 0.1107462840458211
 
     df_train, df_test = build_model_data(**bounds)
+
+    if 1:
+        #plot_cv_curves(df_train[df_train['Name'] == 'Alabaster Colombian Decaf'], df_test, **bounds)
+        #plt.show()
+        #plot_cv_curves(df_train[df_train['Name'] == 'FRC ROBUSTA Brazil, medium roast IH'], df_test, **bounds)
+
+        plot_cv_curves(df_train, df_test, **bounds)
+
+        plt.show()
+
+        
+
+
     pred_x, pred_y, r2, intercept, slope, df_train = build_caff_model(df_train)
     df_test = apply_caff_model(df_test, intercept, slope)
+  
 
     print("Train SPE Caff r2:", r2)
     print("Test  SPE Caff r2:", r2_score(df_test['HPLC_Caff'], df_test['SPE_Caff']))
@@ -483,10 +540,6 @@ if __name__ == "__main__":
     print("Train SPE CGA  r2:", r2)
     print("Test  SPE CGA  r2:", r2_score(df_test['HPLC_CGA'], df_test['SPE_CGA']))
 
-    if 1:
-        plot_cv_curves(df_train, df_test, **bounds)
-        #plt.show()
-        #exit()
 
     if 1:
         # THIS PLOTS THE REGRESSION OF SPE CAFFEINE RESPONSE (TRAINING) VS HPLC CAFFEINE
