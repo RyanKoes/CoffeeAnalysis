@@ -6,7 +6,6 @@ from sklearn.metrics import r2_score
 import numpy as np
 from scipy.integrate import simpson
 
-from functools import partial
 
 import tabulate
 from pathlib import Path
@@ -36,7 +35,7 @@ def plot_cv_curve(df, ax, label=None):
     # plt.legend()
 
 
-def build_model_data(NORMALIZE, BINS, REDOX):
+def build_model_data(NORMALIZE, BINS, REDOX, **kwargs):
 
     train = """Alabaster Colombian Decaf
 Alabaster Colombian Decaf + 200 ppm Caf
@@ -114,7 +113,7 @@ def generate_combined_data(df_train):
     names = df_train['Sample Name'].unique()
 
     print(f"Creating data from {len(names)} unique samples")
-    
+
     data = []
 
     # add original samples
@@ -124,12 +123,12 @@ def generate_combined_data(df_train):
     # combine pairs of samples
     for x in combinations(names, 2):
         for weights in np.linspace(0, 1, 12)[1:-1]:  # skip 0 and 1
-    
+
             newrow = combine_samples (
                 df_train[ df_train['Sample Name'].isin(x)],
                 weights=(weights, 1-weights))
             data.append(newrow)
-    
+
     # combine triplets of samples
     # for x in combinations(names, 3):
     #     for w1 in np.linspace(0, 1, 11)[1:-1]:
@@ -145,7 +144,7 @@ def generate_combined_data(df_train):
     #                 df_train[ df_train['Sample Name'].isin(x)],
     #                 weights=(w1, w2, w3))
     #             data.append(newrow)
-    
+
     return pd.DataFrame(data)
 
 if __name__ == "__main__":
@@ -159,7 +158,7 @@ if __name__ == "__main__":
 
     if 0:
         fig, ax = plt.subplots(1,1,figsize=(6, 4))
-        
+
         for i, name in enumerate(['Alabaster Colombian Decaf (1)', 'FRC Sumatra medium roast (1)']):
             pdf =  df_train[df_train['Sample Name'] == name].iloc[0]['cv_bins']
             x = np.arange(len(pdf))
@@ -171,10 +170,10 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.show()
         exit()
-    
-    
+
+
     test_name = f'2comb-10_bin{bins}'
-    
+
 
     # write test data
     df_test.to_pickle(DATADIR / f'test_{bins}.pkl')
@@ -183,7 +182,7 @@ if __name__ == "__main__":
 
 
     df_combined = generate_combined_data(df_train)
-    
+
     print (df_combined.describe())
 
     #print(f"Combined data has {len(df_combined)} rows")

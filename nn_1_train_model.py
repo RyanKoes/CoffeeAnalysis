@@ -14,6 +14,14 @@ import matplotlib.pyplot as plt
 
 from util import setup_mplt, DATADIR, PLOTDIR
 
+class CoffeeNetBase(nn.Module):
+    def __init__(self):
+        super(CoffeeNetBase, self).__init__()
+
+        # override this
+        self.network = None
+    def forward(self, x):
+        return self.network(x)
 
 # origninal model
 # class CoffeeNet(nn.Module):
@@ -158,6 +166,8 @@ def train_coffeenet(model, X, y, num_epochs=100):
     Returns:
         model: The trained model.
     """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     X_tensor = torch.tensor(X, dtype=torch.float32)
     y_tensor = torch.tensor(y, dtype=torch.float32)
 
