@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mplt
 
 DATADIR= Path('./data').resolve()
+PLOTDIR= Path('./plots').resolve()
 
 def setup_mplt():
     # increase matplotlib font size
@@ -170,9 +171,12 @@ def read_cv_data(filename, normalize = None, datadir = Path('voltammetry-files')
 
 @cache
 def read_cv_data_bins(filename, normalize = None,
+                      redox = False,
                       datadir = Path('voltammetry-files'),
                       num_bins=16):
     """ Reads a CV data file and returns a DataFrame with the data.
+    
+    if redox is true the entire curve is returned for one cycle.
     """
 
     if normalize is None:
@@ -190,22 +194,24 @@ def read_cv_data_bins(filename, normalize = None,
     # remove reduction part of the curve
     # find index of max
     max_index = df['v'].idxmax()
-    # keep only data before max
-    df = df.loc[:max_index]
 
+    if not redox:
+        # keep only data before max
+        df = df.loc[:max_index]
 
     # remove rows where v is NaN
     df = df.dropna(subset=['v', 'i'])
 
-    # reindex to voltage
-    df = df.set_index('v')
 
 
-    # create bins for voltage ranges
-    bins = np.linspace(0, 2.0, num=num_bins + 1)
+    # create bins
+    #bins = np.linspace(0, 2.0, num=num_bins + 1)
+    bins = np.linspace(df.index.min(), df.index.max(), num=num_bins + 1)
+
 
     #print (f"Creating {num_bins} bins for voltage ranges: {bins}")
 
+    times = []
     areas = []
     for i in range(num_bins):
         #print(f"{i:2d} {bins[i]:5.4f} : {bins[i+1]:5.4f}")
@@ -214,6 +220,7 @@ def read_cv_data_bins(filename, normalize = None,
         y = df[bins[i]:bins[i+1]]['i']
         x = df[bins[i]:bins[i+1]].index
 
+        times.append(x.values.mean())
         if len(x) == 0:
             areas.append(0.0)
         else:
@@ -221,9 +228,26 @@ def read_cv_data_bins(filename, normalize = None,
 
 
     #df = pd.DataFrame(y_vals, index = x_vals, columns=['i'])
-    s = pd.Series(areas, name='iv')
+    s = pd.Series(areas, index= times, name='iv')
 
+    
     if normalize:
         s /= sum(areas)
 
-    return s
+    return s, df['i']
+
+
+if __name__ == "__main__":
+    setup_mplt()
+    bins, raw = read_cv_data_bins('A1.txt', normalize=False, redox=False, num_bins=64)
+
+    #print(df)
+
+    fig,ax= plt.subplots(1, 1, figsize=(6, 4))
+    #ax.plot(ser)
+    ax2 = ax.twinx()
+    ax.plot(raw.index, raw, color = 'red', label='Raw Current')
+    ax2.bar(bins.index, bins, width = (bins.index[1] - bins.index[0])/1.2, alpha = 0.5, label='Binned Response')
+    ax.legend()
+    plt.tight_layout()
+    plt.show(   )
