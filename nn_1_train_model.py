@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 import tabulate
-
+from collections import defaultdict
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
@@ -190,7 +190,7 @@ def train_coffeenet(model, X, y, num_epochs=100):
             print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {epoch_loss/len(train_loader):.4f}, GPU Mem: {torch.cuda.memory_allocated(device)/1024**2:.2f}MB / {torch.cuda.memory_reserved(device)/1024**2:.2f}MB')
     return model
 
-def evaluate_training_model(model, X, y):
+def evaluate_model(model, X, y):
     """
     Use the trained model to predict y values from X values.
     returns the predictions and evaluation metrics.
@@ -198,8 +198,11 @@ def evaluate_training_model(model, X, y):
 
     # Evaluation on training data
     model.eval()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     with torch.no_grad():
-        predictions_normalized = model(torch.tensor(X, dtype=torch.float32).to(device)).cpu()
+        pred = model(torch.tensor(X, dtype=torch.float32).to(device)).cpu()
+
+    return pred
 
     out_dim = y.shape[1]
     return[
@@ -304,14 +307,24 @@ if __name__ == "__main__":
         print(f"Model saved to {MODEL_PATH}")
 
 
-    predictions = evaluate_training_model(model, X_standard, y_standard)
+    predictions = evaluate_model(model, X_standard, y_standard)
+
+    # un standardize
+    predictions_original_scale = y_scaler.inverse_transform(predictions)
+
+    results = defaultdict(dict)
+    for i, name in enumerate(target_names):
+        results[name]['r2']= r2_score(y[:, i], predictions_original_scale[:, i])
+        results[name]['mae'] = mean_absolute_error(y[:, i], predictions_original_scale[:, i])
+        results[name]['predictions']= predictions_original_scale[:, i]
 
     print(tabulate.tabulate(
-        [(name, x[1], x[2]) for name, x in zip (target_names, predictions)],
-        headers=['R2 Score', 'MAE'],
+        [[name, results[name][1], results[name][2]] for name in target_names],
+
+        headers=["Name", "R2 Score", "MAE"],
         tablefmt='pipe',
         floatfmt=".4f"
-    ) )
+    ))
 
 
     # Plotting
@@ -324,19 +337,19 @@ if __name__ == "__main__":
         # targets_original_scale = y_scaler.inverse_transform(
         #     y[:, i].reshape(-1, 1)).flatten()
 
-        axes[i].scatter(y[:, i], predictions_original_scale[:, i], alpha=0.5)
+        axes[i].scatter(y[:, i], results[name][0], alpha=0.5)
 
         axes[i].plot([y[:, i].min(), y[:, i].max()],
                      [y[:, i].min(), y[:, i].max()], 'r--')
         axes[i].set_xlabel(f"Actual {name}")
         axes[i].set_ylabel(f"Predicted {name}")
-        axes[i].set_title(f"Actual vs. Predicted {name}\nR2: {predictions[i][1]:.2f}, MAE: {predictions[i][2]:.2f}")
+        axes[i].set_title(f"Actual vs. Predicted {name}\nR2: {results[name][1]:.4f}, MAE: {results[name][2]:.4f}")
         axes[i].grid(True)
 
-        print(f"{name} - R2 Score: {predictions[i][1]:.4f}, MAE: {predictions[i][2]:.4f}")
+        #print(f"{name} - R2 Score: {predictions[i][1]:.4f}, MAE: {predictions[i][2]:.4f}")
 
 
-
+    fig.suptitle(f'Model Evaluation on Training Data ({MODEL_NAME})', fontsize=16)
     plt.tight_layout()
     plt.savefig(PLOTDIR / f'{MODEL_NAME}_training_evaluation.pdf')
     print(f"Evaluation plot saved to {PLOTDIR / f'{MODEL_NAME}_training_evaluation.pdf'}")
