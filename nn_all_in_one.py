@@ -75,8 +75,262 @@ if __name__ == "__main__":
                             nn.Linear(64, 3)
                         ),
                 'network_name': '64-128-64'
-              }
+              },
+            {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'BINS': 64,
+                'USE_BINS': False,
+                'num_epochs': 200,
+                'input_layer': lambda input_size: nn.Linear(input_size, 1024),
 
+                'network': nn.Sequential(
+                            # first layer will be added later
+                            nn.BatchNorm1d(1024),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(1024, 128),
+                            nn.BatchNorm1d(128),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(128, 64),
+                            nn.BatchNorm1d(64),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(64, 128),
+                            nn.BatchNorm1d(128),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(128, 3)
+                        ),
+                'network_name': 'nobins-1024-128-64-128-3'
+              },
+              {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'BINS': 64,
+                'USE_BINS': False,
+                'num_epochs': 100,
+                'input_layer': lambda input_size: nn.Linear(input_size, 1024),
+
+                'network': nn.Sequential(
+                            # first layer will be added later
+                            nn.BatchNorm1d(1024),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(1024, 128),
+                            nn.BatchNorm1d(128),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(128, 64),
+                            nn.BatchNorm1d(64),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(64, 3)
+                        ),
+                'network_name': 'nobins-1024-128-64-3'
+              },
+
+            {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'BINS': 64,
+                'USE_BINS': False,
+                'num_epochs': 300,
+                'input_layer': lambda input_size: nn.Linear(input_size, 1024),
+
+                'network': nn.Sequential(
+                            # first layer will be added later
+                            nn.BatchNorm1d(1024),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(1024, 128),
+                            nn.BatchNorm1d(128),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(128, 64),
+                            nn.BatchNorm1d(64),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(64, 128),
+                            nn.BatchNorm1d(128),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(128, 3)
+                        ),
+                'network_name': 'nobins-1024-128-64-128-3'
+              },
+              {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'BINS': 64,
+                'USE_BINS': False,
+                'num_epochs': 300,
+                'input_layer': lambda input_size: nn.Linear(input_size, 1024),
+
+                'network': nn.Sequential(
+                            # first layer will be added later
+                            nn.BatchNorm1d(1024),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(1024, 128),
+                            nn.BatchNorm1d(128),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(128, 64),
+                            nn.BatchNorm1d(64),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(64, 3)
+                        ),
+                'network_name': 'nobins-1024-128-64-3'
+              },
+              {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'BINS': 64,
+                'USE_BINS': False,
+                'num_epochs': 300,
+                'input_layer': lambda input_size: nn.Linear(input_size, 1024),
+
+                'network': nn.Sequential(
+                            # first layer will be added later
+                            nn.BatchNorm1d(1024),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(1024, 3)
+                        ),
+                'network_name': 'nobins-1024-3'
+              },
+              {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'BINS': 64,
+                'USE_BINS': False,
+                'num_epochs': 300,
+                'input_layer': lambda input_size: nn.Linear(input_size, 256),
+
+                'network': nn.Sequential(
+                            # first layer will be added later
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 3)
+                        ),
+                'network_name': 'nobins-256-3'
+              },
+                            {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'BINS': 64,
+                'USE_BINS': False,
+                'num_epochs': 500,
+                'input_layer': lambda input_size: nn.Linear(input_size, 256),
+
+                'network': nn.Sequential(
+                            # first layer will be added later
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 3)
+                        ),
+                'network_name': 'nobins-256-3'
+              },
+                            {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'BINS': 64,
+                'USE_BINS': False,
+                'num_epochs': 1000,
+                'input_layer': lambda input_size: nn.Linear(input_size, 256),
+
+                'network': nn.Sequential(
+                            # first layer will be added later
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 3)
+                        ),
+                'network_name': 'nobins-256-3'
+              },
+              {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'BINS': 64,
+                'USE_BINS': False,
+                'num_epochs': 300,
+                'input_layer': lambda input_size: nn.Linear(input_size, 3),
+
+                'network': nn.Sequential(
+                            # first layer will be added later
+
+                        ),
+                'network_name': 'nobins-3'
+              },
+                            {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'BINS': 64,
+                'USE_BINS': False,
+                'num_epochs': 300,
+                'input_layer': lambda input_size: nn.Linear(input_size, 256),
+
+                'network': nn.Sequential(
+                            # first layer will be added later
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 64),
+                            nn.BatchNorm1d(64),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(64, 3)
+                        ),
+                'network_name': 'nobins-256-64-3'
+              },
+                                          {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'BINS': 64,
+                'USE_BINS': False,
+                'num_epochs': 500,
+                'input_layer': lambda input_size: nn.Linear(input_size, 256),
+
+                'network': nn.Sequential(
+                            # first layer will be added later
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 64),
+                            nn.BatchNorm1d(64),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(64, 3)
+                        ),
+                'network_name': 'nobins-256-64-3'
+              },
     ]
 
 
@@ -122,6 +376,7 @@ if __name__ == "__main__":
 
         target_names = ['HPLC_Caff', 'HPLC_CGA', 'TDS']
 
+        # setup train data
         if experiment['USE_BINS']:
             X = np.array(df_train_synthetic['cv_bins'].tolist())
         else:
@@ -130,16 +385,29 @@ if __name__ == "__main__":
 
         input_size = X.shape[1]
 
-        # standardize
         X_scaler = StandardScaler().fit(X)
         y_scaler = StandardScaler().fit(y)
 
         X_standard = X_scaler.transform(X)
         y_standard = y_scaler.transform(y)
 
+        # setup test data
+        if experiment['USE_BINS']:
+            X_test = np.array(df_test['cv_bins'].tolist())
+        else:
+            X_test = np.array(df_test['cv_raw'].tolist())
+        y_test = df_test[target_names].values
+
+        X_test_standard = X_scaler.transform(X_test)
+        y_test_standard = y_scaler.transform(y_test)
+
         # train the model
         model = CoffeeNetBase()
         model.network = experiment['network']
+
+        if 'input_layer' in experiment:
+            model.network.insert(0,experiment['input_layer'](input_size))
+
         model.to(device)
 
         model_path = DATADIR / f'{experiment_name}.pth'
@@ -149,7 +417,10 @@ if __name__ == "__main__":
             checkpoint = torch.load(model_path, map_location=device)
             model.load_state_dict(checkpoint['model_state_dict'])
         else:
-            model = train_coffeenet(model, X_standard, y_standard, num_epochs=experiment['num_epochs'])
+            model = train_coffeenet(model,
+                                    X_standard, y_standard,
+                                    X_test_standard, y_test_standard,
+                                    num_epochs=experiment['num_epochs'])
 
             # Save the model
             torch.save({
@@ -178,26 +449,16 @@ if __name__ == "__main__":
             e[f'train_{name}_error_pct'] = 100.0 * (predictions_original_scale[:, i] - y[:, i]) / y[:, i]
 
         # evaluate on test data
+        test_predictions = evaluate_model(model, X_test_standard, y_test_standard)
 
-        if experiment['USE_BINS']:
-            X = np.array(df_test['cv_bins'].tolist())
-        else:
-            X = np.array(df_test['cv_raw'].tolist())
-        y = df_test[target_names].values
-
-        X_standard = X_scaler.transform(X)
-        y_standard = y_scaler.transform(y)
-
-        predictions = evaluate_model(model, X_standard, y_standard)
-
-        predictions_original_scale_test = y_scaler.inverse_transform(predictions)
+        predictions_original_scale_test = y_scaler.inverse_transform(test_predictions)
 
         for i, name in enumerate(target_names):
-            e[f'test_{name}_r2'] = r2_score(y[:, i], predictions_original_scale_test[:, i])
-            e[f'test_{name}_mae'] = mean_absolute_error(y[:, i], predictions_original_scale_test[:, i])
+            e[f'test_{name}_r2'] = r2_score(y_test[:, i], predictions_original_scale_test[:, i])
+            e[f'test_{name}_mae'] = mean_absolute_error(y_test[:, i], predictions_original_scale_test[:, i])
             e[f'test_{name}_predictions'] = predictions_original_scale_test[:, i]
-            e[f'test_{name}_actual']= y[:, i]
-            e[f'test_{name}_error_pct'] = 100.0 * (predictions_original_scale_test[:, i] - y[:, i]) / y[:, i]
+            e[f'test_{name}_actual']= y_test[:, i]
+            e[f'test_{name}_error_pct'] = 100.0 * (predictions_original_scale_test[:, i] - y_test[:, i]) / y_test[:, i]
 
         print("-"*40)
 
@@ -218,9 +479,10 @@ for i, name in enumerate(target_names):
 
 
 print(tabulate.tabulate(df_results [['experiment_name',
-                   'train_HPLC_Caff_r2', 'test_HPLC_Caff_r2', 'train_HPLC_Caff_error_pct_mean', 'test_HPLC_Caff_error_pct_mean',
-                   'train_HPLC_CGA_r2', 'test_HPLC_CGA_r2', 'train_HPLC_CGA_error_pct_mean', 'test_HPLC_CGA_error_pct_mean',
-                   'train_TDS_r2', 'test_TDS_r2', 'train_TDS_error_pct_mean', 'test_TDS_error_pct_mean']],
+                   'train_HPLC_Caff_r2', 'test_HPLC_Caff_r2', #'train_HPLC_Caff_error_pct_mean', 'test_HPLC_Caff_error_pct_mean',
+                   'train_HPLC_CGA_r2', 'test_HPLC_CGA_r2', #'train_HPLC_CGA_error_pct_mean', 'test_HPLC_CGA_error_pct_mean',
+                   'train_TDS_r2', 'test_TDS_r2', #'train_TDS_error_pct_mean', 'test_TDS_error_pct_mean']],
+                    ]],
                    floatfmt=".4f",
                    headers='keys', tablefmt='psql'))
 

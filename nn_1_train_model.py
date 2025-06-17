@@ -155,7 +155,7 @@ class CoffeeNet4096x7(nn.Module):
 #         return self.network(x)
 
 
-def train_coffeenet(model, X, y, num_epochs=100):
+def train_coffeenet(model, X, y, X_test = None, y_test = None, num_epochs=100):
     """
     Train a model to predict y vales from X values.
     Args:
@@ -175,11 +175,24 @@ def train_coffeenet(model, X, y, num_epochs=100):
     dataset = TensorDataset(X_tensor, y_tensor)
     # For this task, we'll use the whole dataset for training and evaluation
     # In a real scenario, you'd split into train/validation/test
-    train_loader = DataLoader(dataset, batch_size=128, shuffle=True, pin_memory=True)
+    #train_loader = DataLoader(dataset, batch_size=256, shuffle=True, pin_memory=True)
+    train_loader = DataLoader(dataset, batch_size=X.shape[0], shuffle=True, pin_memory=True)
+
+    test_loader = None
+    if X_test is not None and y_test is not None:
+        X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
+        y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
+        test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
+        # Batch size for test_loader can be larger if memory allows, shuffle is False
+        #test_loader = DataLoader(test_dataset, batch_size=256, shuffle=False, pin_memory=True)
+        test_loader = DataLoader(test_dataset, batch_size=X.shape[0], shuffle=False, pin_memory=True)
+
 
     # Loss and optimizer
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+
 
     # Training loop
     for epoch in range(num_epochs):
@@ -197,7 +210,24 @@ def train_coffeenet(model, X, y, num_epochs=100):
             epoch_loss += loss.item()
 
         if (epoch + 1) % 20 == 0:
-            print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {epoch_loss/len(train_loader):.4f}, GPU Mem: {torch.cuda.memory_allocated(device)/1024**2:.2f}MB / {torch.cuda.memory_reserved(device)/1024**2:.2f}MB')
+            log_message = f'Epoch [{epoch+1:4d}/{num_epochs:4d}], Loss: {epoch_loss/len(train_loader):.4f}'
+
+            if test_loader is not None:
+                model.eval()
+                epoch_test_loss = 0
+                with torch.no_grad(): # Disable gradient calculations for testing
+                    for batch_X_test, batch_y_test in test_loader:
+                        batch_X_test, batch_y_test = batch_X_test.to(device), batch_y_test.to(device)
+                        outputs_test = model(batch_X_test)
+                        loss_test = criterion(outputs_test, batch_y_test)
+                        epoch_test_loss += loss_test.item()
+                avg_test_loss = epoch_test_loss / len(test_loader)
+                log_message += f', Test Loss: {avg_test_loss:.4f}'
+                model.train() # Switch back to training mode
+
+            log_message += f', GPU Mem: {torch.cuda.memory_allocated(device)/1024**2:.2f}MB / {torch.cuda.memory_reserved(device)/1024**2:.2f}MB'
+            print(log_message)
+
     return model
 
 def evaluate_model(model, X, y):

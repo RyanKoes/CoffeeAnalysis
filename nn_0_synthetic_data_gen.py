@@ -35,7 +35,7 @@ def plot_cv_curve(df, ax, label=None):
     # plt.legend()
 
 
-def build_model_data(NORMALIZE, BINS, REDOX, **kwargs):
+def build_model_data(NORMALIZE, BINS=64, REDOX=False , test_train_split = True, **kwargs):
 
     train = """Alabaster Colombian Decaf
 Alabaster Colombian Decaf + 200 ppm Caf
@@ -77,8 +77,15 @@ FRC Brazil Cerrado, medium roast IH- High BR, 2x dilute""".split('\n')
 
     df.sort_values(by='HPLC_Caff', inplace=True)
 
-    train = df['Coffee Name'].isin(train)
-    return  df[train], df[~train]
+    if test_train_split:
+
+        train = df['Coffee Name'].isin(train)
+        return  df[train], df[~train]
+
+    else:
+        return df
+
+
 
 def combine_samples(samples, weights):
 
