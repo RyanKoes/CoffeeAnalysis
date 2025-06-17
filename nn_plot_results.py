@@ -1,13 +1,15 @@
 import pandas as pd
-import matplotlib as plt
+import numpy as np
+import matplotlib.pyplot as plt
 from pathlib	import Path
+import tabulate
 
-from util import DATADIR
-
+from util import DATADIR, setup_mplt, PLOTDIR
 
 
 
 if __name__ == "__main__":
+    setup_mplt()
     resutls_path = DATADIR / 'results.pkl'
     df = pd.read_pickle(resutls_path)
 
@@ -27,4 +29,104 @@ if __name__ == "__main__":
     #    'test_HPLC_Caff_error_pct_mean', 'train_HPLC_CGA_error_pct_mean',
     #    'test_HPLC_CGA_error_pct_mean', 'train_TDS_error_pct_mean',
     #    'test_TDS_error_pct_mean'],
-    print(df.columns)
+    #print(df.columns)
+
+
+    # aggregate by fold
+    df_avg = df[['experiment_name', 'fold',
+                    'train_HPLC_Caff_r2', 'test_HPLC_Caff_r2',
+                    'train_HPLC_CGA_r2', 'test_HPLC_CGA_r2',
+                    'train_TDS_r2', 'test_TDS_r2',
+                        ]].groupby(['experiment_name']).agg('mean')
+
+    df_avg.sort_values(by='test_HPLC_Caff_r2', ascending=False, inplace=True)
+
+    print(tabulate.tabulate(df_avg,
+                    floatfmt=".4f",
+                    headers='keys', tablefmt='psql'))
+        
+    df_best = df[df['experiment_name'] == df_avg.iloc[0].name]
+
+    #print(df_best['test_HPLC_Caff_actual'])
+    # compile actual / predictions across all folds
+
+
+    
+    train_actual = np.array([np.concat(df_best[name].values) for name in ['train_HPLC_Caff_actual', 'train_HPLC_CGA_actual', 'train_TDS_actual']]).T
+    train_predictions = np.array([np.concat(df_best[name].values) for name in ['train_HPLC_Caff_predictions', 'train_HPLC_CGA_predictions', 'train_TDS_predictions']]).T
+
+    actual = np.array([np.concat(df_best[name].values) for name in ['test_HPLC_Caff_actual', 'test_HPLC_CGA_actual', 'test_TDS_actual']]).T
+    predictions = np.array([np.concat(df_best[name].values) for name in ['test_HPLC_Caff_predictions', 'test_HPLC_CGA_predictions', 'test_TDS_predictions']]).T
+
+
+    r2 = df_best[['test_HPLC_Caff_r2', 'test_HPLC_CGA_r2', 'test_TDS_r2']].agg('mean').values
+    mae = df_best[['test_HPLC_Caff_mae', 'test_HPLC_CGA_mae', 'test_TDS_mae']].agg('mean').values
+
+
+    train_r2 =df_best[['train_HPLC_Caff_r2', 'train_HPLC_CGA_r2', 'train_TDS_r2']].agg('mean').values
+    train_mae = df_best[['train_HPLC_Caff_mae', 'train_HPLC_CGA_mae', 'train_TDS_mae']].agg('mean').values
+    
+    target_names = ['Caffeine', 'CGA', 'TDS']
+
+    # this creates the scatter plots of data
+    if 0:
+
+        # Plotting
+        fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+        #fig.suptitle(f'Model Evaluation on Test Data ({MODEL_NAME})', fontsize=16)
+        
+        #fig.suptitle("Title this", fontsize=16)
+        for i, name in enumerate(target_names):
+            axes[i].scatter(actual[:, i], predictions[:, i], 
+                            edgecolors='gray',
+                            color = 'coral', alpha=0.9, label='Test')
+            axes[i].scatter(train_actual[:, i], train_predictions[:, i], 
+                            edgecolors='gray',
+                            color = 'lightblue', alpha=0.3, label='Train')
+
+            axes[i].plot([actual[:, i].min(), actual[:, i].max()],
+                        [actual[:, i].min(), actual[:, i].max()], 'r--', label='Ideal')
+        
+            axes[i].set_xlabel(f"Actual {name}")
+            axes[i].set_ylabel(f"Predicted {name}")
+
+            axes[i].set_title(f"Actual vs. Predicted {name}\nTest R2: {r2[i]:.4f}, Test MAE: {mae[i]:.4f}\nTrain R2: {train_r2[i]:.4f}, Train MAE: {train_mae[i]:.4f}",)
+            axes[i].grid(True)
+            axes[i].legend()
+
+        #plt.tight_layout(rect=[0, 0, 1, 0.96]) # Adjust layout to make space for suptitle
+        plt.tight_layout()
+
+
+
+    # the box plot of errors / r2
+    if 1:
+        err_ppm = (predictions-actual)
+        err_pct = 100.0 * (predictions - actual) / actual
+        
+        fig_violin, ax_violin_main = plt.subplots(figsize=(12, 7)) # Adjusted figure size
+
+        ax_violin_main.violinplot(err_pct, positions=[1, 2, 3], showmeans=True, showmedians=False, widths=0.8)
+        ax_violin_main.set_ylabel('Prediction Error % ppm')
+        ax_violin_main.tick_params(axis='y',)
+
+        ax_violin_main.set_xticks(np.arange(1, len(target_names) + 1))
+        ax_violin_main.set_xticklabels(target_names)
+        ax_violin_main.set_title('Distribution of Prediction Error Percent on Test Data')
+        #ax_violin_main.grid(True, linestyle='--', alpha=0.7, axis='x') # Grid for x-axis from main
+        ax_violin_main.grid(True, linestyle='--', alpha=0.7)
+
+
+        for i, name in enumerate(target_names):
+            
+            print(f"{name} Mean error   {np.mean(err_ppm[:, i]):.4f}")
+            print(f"{name} Median error {np.median(err_ppm[:, i]):.4f}")
+            print(f"{name} Max error    {np.max(err_ppm[:, i]):.4f}")
+            print(f"{name} Min error    {np.min(err_ppm[:, i]):.4f}")
+            print(f"{name} std error    {np.std(err_ppm[:, i]):.4f}")
+            
+        plt.tight_layout()  
+
+
+
+    plt.show()
