@@ -32,13 +32,21 @@ if __name__ == "__main__":
     #print(df.columns)
 
 
+
     df['test_Caff_err'] = df['test_HPLC_Caff_actual'] -df['test_HPLC_Caff_predictions']
     df['test_CGA_err'] = df['test_HPLC_CGA_actual'] -df['test_HPLC_CGA_predictions']
+
+
+
 
     df['test_TDS_actual_ppm']= df['test_TDS_actual'] * 10000
     df['test_TDS_predictions_ppm'] = df['test_TDS_predictions'] * 10000
     df['test_TDS_err_ppm'] = df['test_TDS_actual_ppm'] -df['test_TDS_predictions_ppm']
 
+
+    df['train_TDS_actual_ppm']= df['train_TDS_actual'] * 10000
+    df['train_TDS_predictions_ppm'] = df['train_TDS_predictions'] * 10000
+    df['train_TDS_err_ppm'] = df['train_TDS_actual_ppm'] -df['train_TDS_predictions_ppm']
 
     # aggregate by fold
     df_avg = df[['experiment_name', 'fold',
@@ -56,10 +64,14 @@ if __name__ == "__main__":
                     headers='keys', tablefmt='psql'))
     
     print ('Best model', df_avg.iloc[0].name)
-        
+
+    
+    
     df_best = df[df['experiment_name'] == df_avg.iloc[0].name]
 
-
+    # exp = 'CoffeeNetNORM-OX-NOISE5-nobins-256-3-1000'
+    # df_best = df[df['experiment_name'] == exp]
+    
 
     print(df_best[['test_HPLC_Caff_actual', 'test_HPLC_Caff_predictions',  'test_Caff_err', 
                    'test_HPLC_CGA_actual', 'test_HPLC_CGA_predictions',
@@ -86,8 +98,8 @@ if __name__ == "__main__":
 
     #train_actual = np.concat(df_best[['train_HPLC_Caff_actual', 'train_HPLC_CGA_actual', 'train_TDS_actual']].values, axis=0)
 
-    train_actual = combine(df_best, ['train_HPLC_Caff_actual', 'train_HPLC_CGA_actual', 'train_TDS_actual'])
-    train_predictions = combine(df_best, ['train_HPLC_Caff_predictions', 'train_HPLC_CGA_predictions', 'train_TDS_predictions'])
+    train_actual = combine(df_best, ['train_HPLC_Caff_actual', 'train_HPLC_CGA_actual', 'train_TDS_actual_ppm'])
+    train_predictions = combine(df_best, ['train_HPLC_Caff_predictions', 'train_HPLC_CGA_predictions', 'train_TDS_predictions_ppm'])
 
     actual = combine(df_best, ['test_HPLC_Caff_actual', 'test_HPLC_CGA_actual', 'test_TDS_actual_ppm'])
     predictions = combine(df_best, ['test_HPLC_Caff_predictions', 'test_HPLC_CGA_predictions', 'test_TDS_predictions_ppm'])
@@ -107,7 +119,7 @@ if __name__ == "__main__":
     target_names = ['Caffeine', 'CGA', 'TDS']
 
     # this creates the scatter plots of data
-    if 0:
+    if 1:
 
         # Plotting
         fig, axes = plt.subplots(1, 3, figsize=(18, 5))
