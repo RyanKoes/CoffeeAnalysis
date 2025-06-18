@@ -30,7 +30,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 200,
-
+                'active': False,
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 1024),
                             nn.BatchNorm1d(1024),
@@ -61,7 +61,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 100,
-
+                'active': False,
 
                 'network': lambda input_size:nn.Sequential(
                             nn.Linear(input_size, 1024),
@@ -89,7 +89,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 300,
-
+                'active': False,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 1024),
@@ -121,7 +121,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 300,
-
+                'active': False,
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 1024),
                             nn.BatchNorm1d(1024),
@@ -148,7 +148,7 @@ if __name__ == "__main__":
                 'USE_BINS': False,
                 'num_epochs': 300,
 
-
+                'active': False,
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 1024),
                             nn.BatchNorm1d(1024),
@@ -164,7 +164,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 300,
-
+                'active': False,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -181,7 +181,24 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 500,
+                'active': False,
 
+                'network': lambda input_size: nn.Sequential(
+                            nn.Linear(input_size, 256),
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 3)
+                        ),
+                'network_name': 'nobins-256-3'
+              },
+            {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'USE_BINS': False,
+                'num_epochs': 1000,
+                'active': True,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -198,7 +215,85 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
+                'active': True,
+                'add_noise': 10,
+                'noise_level': 0.001,
 
+                'network': lambda input_size: nn.Sequential(
+                            nn.Linear(input_size, 256),
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 3)
+                        ),
+                'network_name': 'nobins-256-3'
+              },         
+                            {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'USE_BINS': False,
+                'num_epochs': 1000,
+                'active': True,
+                'add_noise': 20,
+                'noise_level': 0.005,
+
+                'network': lambda input_size: nn.Sequential(
+                            nn.Linear(input_size, 256),
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 3)
+                        ),
+                'network_name': 'nobins-256-3'
+              },
+              {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'USE_BINS': False,
+                'num_epochs': 1000,
+                'active': True,
+                'add_noise': 30,
+                'noise_level': 0.5,
+
+                'network': lambda input_size: nn.Sequential(
+                            nn.Linear(input_size, 256),
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 3)
+                        ),
+                'network_name': 'nobins-256-3'
+              },
+                            {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'USE_BINS': False,
+                'num_epochs': 1000,
+                'active': True,
+                'add_noise': 50,
+                'noise_level': 5,
+
+                'network': lambda input_size: nn.Sequential(
+                            nn.Linear(input_size, 256),
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 3)
+                        ),
+                'network_name': 'nobins-256-3'
+              },
+              {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'USE_BINS': False,
+                'num_epochs': 1000,
+                'active': True,
+                'add_noise': 100,
+                'noise_level': .05,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -215,6 +310,8 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 300,
+                'active': False,
+
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 3),
                         ),
@@ -225,6 +322,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 300,
+                'active': False,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -246,7 +344,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 500,
-
+                'active': False,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -270,17 +368,23 @@ if __name__ == "__main__":
 
     for experiment in experiment_params:
 
-        experiment_name = '2comb10-'
+        if experiment['active'] == False:
+            continue
+
+
+        #experiment_name = '2comb10-'
+        experiment_name = 'CoffeeNet'
         experiment_name += 'NORM-' if experiment["NORMALIZE"] else "NONORM-"
         experiment_name += 'REDOX-' if experiment["REDOX"] else "OX-"
+
+        if 'add_noise' in experiment:
+            experiment_name += f'NOISE{experiment['noise_level']}-' if experiment["add_noise"] else "NONOISE-"
         experiment_name += f"{experiment['network_name']}-{experiment['num_epochs']}"
 
         #print("-"*40)
         print(f"Running experiment: {experiment_name}", end="")
 
-
         all_data_path = DATADIR / f'{experiment_name}_all.pkl'
-
 
         # build experiment data
         if all_data_path.exists():
@@ -329,6 +433,32 @@ if __name__ == "__main__":
             # setup train data
             X_train = X_all[train_index]
             y_train = y_all[train_index]
+
+            # X_std = np.std(X_train, axis = 1)
+
+            if 'add_noise' in experiment and experiment['add_noise']:
+                noise_num = experiment['add_noise']
+                noise_level = experiment['noise_level']
+
+                # print(X_train.shape)
+                # print(X_std.shape  )
+
+
+                X_list = []
+                y_list = []
+
+                for _ in range(noise_num):
+                    noise = np.random.normal(
+                        0,
+                        noise_level,
+                        X_train.shape
+                    )
+
+                    X_list.append(X_train + noise)
+                    y_list.append(y_train)
+
+                X_train = np.concatenate(X_list)
+                y_train = np.concatenate(y_list)
 
             X_scaler = StandardScaler().fit(X_train)
             y_scaler = StandardScaler().fit(y_train)
