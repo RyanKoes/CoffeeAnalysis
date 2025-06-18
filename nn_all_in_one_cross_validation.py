@@ -29,8 +29,8 @@ if __name__ == "__main__":
                 'NORMALIZE': True,
                 'REDOX': False,
                 'USE_BINS': False,
-                'num_epochs': 200,
-                'active': False,
+                'num_epochs': 2000,
+                'active': True,
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 1024),
                             nn.BatchNorm1d(1024),
@@ -60,8 +60,8 @@ if __name__ == "__main__":
                 'NORMALIZE': True,
                 'REDOX': False,
                 'USE_BINS': False,
-                'num_epochs': 100,
-                'active': False,
+                'num_epochs': 1000,
+                'active': True,
 
                 'network': lambda input_size:nn.Sequential(
                             nn.Linear(input_size, 1024),
@@ -88,8 +88,8 @@ if __name__ == "__main__":
                 'NORMALIZE': True,
                 'REDOX': False,
                 'USE_BINS': False,
-                'num_epochs': 300,
-                'active': False,
+                'num_epochs': 500,
+                'active': True,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 1024),
@@ -120,8 +120,8 @@ if __name__ == "__main__":
                 'NORMALIZE': True,
                 'REDOX': False,
                 'USE_BINS': False,
-                'num_epochs': 300,
-                'active': False,
+                'num_epochs': 500,
+                'active': True,
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 1024),
                             nn.BatchNorm1d(1024),
@@ -146,9 +146,9 @@ if __name__ == "__main__":
                 'NORMALIZE': True,
                 'REDOX': False,
                 'USE_BINS': False,
-                'num_epochs': 300,
+                'num_epochs': 500,
 
-                'active': False,
+                'active': True,
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 1024),
                             nn.BatchNorm1d(1024),
@@ -164,7 +164,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 300,
-                'active': False,
+                'active': True,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -181,7 +181,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 500,
-                'active': False,
+                'active': True,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -210,7 +210,7 @@ if __name__ == "__main__":
                         ),
                 'network_name': 'nobins-256-3'
               },
-                            {
+                {
                 'NORMALIZE': True,
                 'REDOX': False,
                 'USE_BINS': False,
@@ -228,7 +228,26 @@ if __name__ == "__main__":
                             nn.Linear(256, 3)
                         ),
                 'network_name': 'nobins-256-3'
-              },         
+              },
+                {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'USE_BINS': False,
+                'num_epochs': 1000,
+                'active': True,
+                'add_noise': 100,
+                'noise_level': 0.001,
+
+                'network': lambda input_size: nn.Sequential(
+                            nn.Linear(input_size, 256),
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 3)
+                        ),
+                'network_name': 'nobins-256-3'
+              },
                             {
                 'NORMALIZE': True,
                 'REDOX': False,
@@ -310,7 +329,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 300,
-                'active': False,
+                'active': True,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 3),
@@ -322,7 +341,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 300,
-                'active': False,
+                'active': True,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -344,7 +363,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 500,
-                'active': False,
+                'active': True,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -374,11 +393,15 @@ if __name__ == "__main__":
 
         #experiment_name = '2comb10-'
         experiment_name = 'CoffeeNet'
-        experiment_name += 'NORM-' if experiment["NORMALIZE"] else "NONORM-"
+
+        # normalization only affects bins.
+        if experiment.get('bins') == True:
+            experiment_name += 'NORM-' if experiment["NORMALIZE"] else "NONORM-"
+
         experiment_name += 'REDOX-' if experiment["REDOX"] else "OX-"
 
         if 'add_noise' in experiment:
-            experiment_name += f'NOISE{experiment['noise_level']}-' if experiment["add_noise"] else "NONOISE-"
+            experiment_name += f'NOISE{experiment['add_noise']}-{experiment['noise_level']}-' if experiment["add_noise"] else "NONOISE-"
         experiment_name += f"{experiment['network_name']}-{experiment['num_epochs']}"
 
         #print("-"*40)
@@ -406,7 +429,7 @@ if __name__ == "__main__":
         target_names = ['HPLC_Caff', 'HPLC_CGA', 'TDS']
 
 
-       
+
         coffees = df_all['Coffee Name'].unique()
 
         #for fold, (train_index, test_index) in enumerate(kf.split(X_all, y_all)):
