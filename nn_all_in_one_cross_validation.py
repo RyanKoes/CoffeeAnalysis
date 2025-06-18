@@ -404,21 +404,25 @@ if __name__ == "__main__":
         #print (df_all[])
 
         target_names = ['HPLC_Caff', 'HPLC_CGA', 'TDS']
-        X_all = np.array(df_all['cv_raw'].tolist())
-        y_all = np.array(df_all[target_names].values)
 
 
+       
+        coffees = df_all['Coffee Name'].unique()
 
-        input_size = X_all.shape[1]
+        #for fold, (train_index, test_index) in enumerate(kf.split(X_all, y_all)):
+        for fold, (train_index, test_index) in enumerate(kf.split(coffees)):
+            print()
+            print("-"*10)
 
-        for fold, (train_index, test_index) in enumerate(kf.split(X_all, y_all)):
-            #print("-"*10)
             if fold == 0:
                 print (fold, flush=True, end="")
             if fold == kf.get_n_splits() -1:
                 print(f", {fold}", flush=True)
             else:
                 print(f", {fold}", end="", flush=True)
+
+            df_train = df_all[df_all['Coffee Name'].isin(coffees[train_index])]
+            df_test = df_all[df_all['Coffee Name'].isin(coffees[test_index])]
 
             # this stores all the experimental results and data to save across runs
             e = {
@@ -431,18 +435,21 @@ if __name__ == "__main__":
             }
 
             # setup train data
-            X_train = X_all[train_index]
-            y_train = y_all[train_index]
+            # X_train = X_all[train_index]
+            # y_train = y_all[train_index]
+
+            X_train = np.array(df_train['cv_raw'].to_list())
+            y_train = np.array(df_train[target_names].values)
+
+            input_size = X_train.shape[1]
+
+            # X_mean = np.mean(X_train, axis = 1)
 
             # X_std = np.std(X_train, axis = 1)
 
             if 'add_noise' in experiment and experiment['add_noise']:
                 noise_num = experiment['add_noise']
                 noise_level = experiment['noise_level']
-
-                # print(X_train.shape)
-                # print(X_std.shape  )
-
 
                 X_list = []
                 y_list = []
@@ -467,12 +474,14 @@ if __name__ == "__main__":
             y_train_standard = y_scaler.transform(y_train)
 
             # setup test data
-            X_test = X_all[test_index]
-            y_test = y_all[test_index]
+            # X_test = X_all[test_index]
+            # y_test = y_all[test_index]
+
+            X_test = np.array(df_test['cv_raw'].to_list())
+            y_test = np.array(df_test[target_names].values)
 
             X_test_standard = X_scaler.transform(X_test)
             y_test_standard = y_scaler.transform(y_test)
-
 
             model = CoffeeNetBase()
             model.network = experiment['network'](input_size)

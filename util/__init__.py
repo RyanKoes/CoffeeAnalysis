@@ -105,6 +105,9 @@ def read_coffehub(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA', use
                     'cv_data1', 'cv_data2', 'cv_data3']
 
 
+    #print(df [df['Name'] == 'FRC Swiss Water Decaf Colombian, med roast IH'])
+    #exit()
+
     # drop NA rows
     df = df.dropna()
 

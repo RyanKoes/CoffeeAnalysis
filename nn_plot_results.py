@@ -55,8 +55,6 @@ if __name__ == "__main__":
                     'train_TDS_r2', 'test_TDS_r2',
                         ]].groupby(['experiment_name']).agg('mean')
 
-
-
     df_avg.sort_values(by='test_HPLC_Caff_r2', ascending=False, inplace=True)
 
     print(tabulate.tabulate(df_avg,

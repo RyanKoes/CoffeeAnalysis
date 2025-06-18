@@ -74,7 +74,6 @@ FRC Brazil Cerrado, medium roast IH- High BR, 2x dilute""".split('\n')
 
     df = pd.DataFrame(results)
 
-
     df.sort_values(by='HPLC_Caff', inplace=True)
 
     if test_train_split:
