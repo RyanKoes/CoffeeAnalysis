@@ -248,6 +248,26 @@ if __name__ == "__main__":
                         ),
                 'network_name': 'nobins-256-3'
               },
+
+                {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'USE_BINS': False,
+                'num_epochs': 1000,
+                'active': True,
+                'add_noise': 200,
+                'noise_level': 0.001,
+
+                'network': lambda input_size: nn.Sequential(
+                            nn.Linear(input_size, 256),
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 3)
+                        ),
+                'network_name': 'nobins-256-3'
+              },              
                             {
                 'NORMALIZE': True,
                 'REDOX': False,

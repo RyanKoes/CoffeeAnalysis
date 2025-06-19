@@ -58,19 +58,23 @@ if __name__ == "__main__":
 
     df_avg.sort_values(by='test_HPLC_Caff_r2', ascending=False, inplace=True)
 
+    # prints all test results
     print(tabulate.tabulate(df_avg,
                     floatfmt=".4f",
                     headers='keys', tablefmt='psql'))
 
-    print ('Best model', df_avg.iloc[0].name)
 
 
+    exp = df_avg.iloc[0].name
 
-    df_best = df[df['experiment_name'] == df_avg.iloc[0].name]
+    exp = 'CoffeeNetOX-NOISE20-0.005-nobins-256-3-1000'
+    df_best = df[df['experiment_name'] == exp]
+
+    print ('Using model', exp)
 
     #exp = 'CoffeeNetOX-NOISE0.5-nobins-256-3-1000'
-    exp = 'CoffeeNetOX-NOISE0.001-nobins-256-3-1000'
-    df_best = df[df['experiment_name'] == exp]
+    #exp = 'CoffeeNetOX-NOISE0.001-nobins-256-3-1000'
+    #df_best = df[df['experiment_name'] == exp]
 
 
     # print(df_best[['test_HPLC_Caff_actual', 'test_HPLC_Caff_predictions',  'test_Caff_err',
@@ -130,15 +134,26 @@ if __name__ == "__main__":
 
     # compute confidence interval on errors
     mean_err = np.mean(err_ppm, axis=0)
-    std_err = np.std(err_ppm, axis=0)
+    std_err = np.std(err_ppm, axis=0, ddof=1)
 
     n = err_ppm.shape[0]
+
+
+
+
     confidence_level = 0.95
     t_value = st.t.ppf((1 + confidence_level) / 2, n - 1)
+
+
 
     valrange = t_value * std_err / np.sqrt(n)
     lower_bound = mean_err - valrange
     upper_bound = mean_err + valrange
+
+    
+    q1_err = np.percentile(err_ppm, 25, axis=0)
+    q3_err = np.percentile(err_ppm, 75, axis=0)
+    iqr_err = q3_err - q1_err
 
     r = []
     for i, name in enumerate(target_names):
@@ -148,6 +163,7 @@ if __name__ == "__main__":
             'Std': std_err[i],
             'Lower': lower_bound[i],
             'Upper': upper_bound[i],
+            'IQR': iqr_err[i],
             'max': np.max(err_ppm[:,i]),
             'min': np.min(err_ppm[:,i]),
             f'{confidence_level}%range': valrange[i],
@@ -155,9 +171,6 @@ if __name__ == "__main__":
         })
 
     print(tabulate.tabulate(r, floatfmt=".1f", headers='keys', tablefmt='psql'))
-
-
-
 
     # this creates the scatter plots of data
     if 1:
@@ -178,8 +191,8 @@ if __name__ == "__main__":
             axes[i].plot([actual[:, i].min(), actual[:, i].max()],
                         [actual[:, i].min(), actual[:, i].max()], 'r--', label='Ideal')
 
-            axes[i].set_xlabel(f"Actual {name}")
-            axes[i].set_ylabel(f"Predicted {name}")
+            axes[i].set_xlabel(f"Actual {name} (ppm)")
+            axes[i].set_ylabel(f"Predicted {name} (ppm)")
 
             axes[i].set_title(f"Actual vs. Predicted {name}\nTest R2: {r2[i]:.4f}, Test MAE: {mae[i]:.4f}\nTrain R2: {train_r2[i]:.4f}, Train MAE: {train_mae[i]:.4f}",)
             axes[i].grid(True)
