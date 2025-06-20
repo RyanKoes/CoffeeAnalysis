@@ -473,10 +473,12 @@ if __name__ == "__main__":
 
     exp_results = []
 
-    for experiment in experiment_params:
+    for k, experiment in enumerate(experiment_params):
 
         if experiment['active'] == False:
             continue
+
+
 
 
         #experiment_name = '2comb10-'
@@ -493,7 +495,7 @@ if __name__ == "__main__":
         experiment_name += f"{experiment['network_name']}-{experiment['num_epochs']}"
 
         #print("-"*40)
-        print(f"Running experiment: {experiment_name}", end="")
+        print(f"Running experiment: {experiment_name} - {k+1}/{len(experiment_params)}")
 
         all_data_path = DATADIR / f'{experiment_name}_all.pkl'
 
@@ -527,7 +529,7 @@ if __name__ == "__main__":
         exp_train_actual = []
         exp_train_preditions = []
         exp_test_actual = []
-        exp_test_predittions = []
+        exp_test_predictions = []
 
         for fold, test_coffee in enumerate(coffees):
 
@@ -565,7 +567,7 @@ if __name__ == "__main__":
 
             X_train = np.array(df_train['cv_raw'].to_list())
             y_train = np.array(df_train[target_names].values)
-            
+
             input_size = X_train.shape[1]
 
             #print("This should be empyt:")
@@ -652,7 +654,7 @@ if __name__ == "__main__":
             #print(exp_train_actual.shape)
 
             exp_train_actual.append(y_train)
-            exp_train_preditions.append(predictions_original_scale) 
+            exp_train_preditions.append(predictions_original_scale)
 
             #
             for i, name in enumerate(target_names):
@@ -669,9 +671,9 @@ if __name__ == "__main__":
 
 
             #exp_test_actual.append(y_test)
-            #exp_test_predittions.append(predictions_original_scale_test)
+            #exp_test_predictions.append(predictions_original_scale_test)
             exp_test_actual.append(y_test)
-            exp_test_predittions.append(predictions_original_scale_test)
+            exp_test_predictions.append(predictions_original_scale_test)
 
             for i, name in enumerate(target_names):
 #                e[f'test_{name}_r2'] = r2_score(y_test[:, i], predictions_original_scale_test[:, i])
@@ -685,22 +687,22 @@ if __name__ == "__main__":
             #exit()
 
         exp_test_actual = np.concat(exp_test_actual)
-        exp_test_predittions = np.concat(exp_test_predittions)
+        exp_test_predictions = np.concat(exp_test_predictions)
         exp_train_actual = np.concat(exp_train_actual)
         exp_train_preditions = np.concat(exp_train_preditions)
 
         e={
             'experiment_name': experiment_name,
             'train_actual': exp_train_actual,
-            'train_preditions': exp_train_preditions,
+            'train_predictions': exp_train_preditions,
             'train_r2': [r2_score(exp_train_actual[:, i], exp_train_preditions[:, i]) for i in range(len(target_names))],
             'train_mae': [mean_absolute_error(exp_train_actual[:,i], exp_train_preditions[:,i]) for i in range(len(target_names))],
-            
+
 
             'test_actual': exp_test_actual,
-            'test_predittions': exp_test_predittions,
-            'test_r2': [r2_score(exp_test_actual[:, i], exp_test_predittions[:, i]) for i in range(len(target_names))],
-            'test_mae': [mean_absolute_error(exp_test_actual[:,i], exp_test_predittions[:,i]) for i in range(len(target_names))],
+            'test_predictions': exp_test_predictions,
+            'test_r2': [r2_score(exp_test_actual[:, i], exp_test_predictions[:, i]) for i in range(len(target_names))],
+            'test_mae': [mean_absolute_error(exp_test_actual[:,i], exp_test_predictions[:,i]) for i in range(len(target_names))],
         }
         e['test_r2_avg'] = np.mean(e['test_r2'])
         e['test_mae_avg'] = np.mean(e['test_mae'])
@@ -710,7 +712,7 @@ if __name__ == "__main__":
         exp_results.append(e)
 
 
-        
+
 
 
 ### AFTER RUNNING EVERYTHING PRINT THE RESULTS ###
@@ -718,6 +720,8 @@ if __name__ == "__main__":
 
 
 df_results = pd.DataFrame(exp_results)
+
+df_results.sort_values(by='test_r2_avg', ascending=False, inplace=True)
 
 # add percent errors
 # for i, name in enumerate(target_names):
@@ -736,7 +740,7 @@ df_results = pd.DataFrame(exp_results)
 # df_results['train_mae_avg']= np.mean(df_results['train_mae'])
 # df_results['test_mae_avg']= np.mean(df_results['test_mae'])
 
-print(tabulate.tabulate(df_results[['experiment_name',                                
+print(tabulate.tabulate(df_results[['experiment_name',
                    'train_r2_avg', 'test_r2_avg',
                    'train_mae_avg', 'test_mae_avg',
                    'train_r2', 'train_mae',
