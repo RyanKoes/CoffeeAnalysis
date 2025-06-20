@@ -22,7 +22,9 @@ if __name__ == "__main__":
         exit()
     print(f"Using device: {device}")
 
-    kf = KFold(n_splits=10, shuffle=True, random_state=42)
+
+    # do leave one out validation
+    #kf = KFold(n_splits=10, shuffle=True, random_state=42)
 
     experiment_params =[
             {
@@ -267,7 +269,7 @@ if __name__ == "__main__":
                             nn.Linear(256, 3)
                         ),
                 'network_name': 'nobins-256-3'
-              },              
+              },
                             {
                 'NORMALIZE': True,
                 'REDOX': False,
@@ -360,7 +362,7 @@ if __name__ == "__main__":
                 'NORMALIZE': True,
                 'REDOX': False,
                 'USE_BINS': False,
-                'num_epochs': 300,
+                'num_epochs': 1000,
                 'active': True,
 
                 'network': lambda input_size: nn.Sequential(
@@ -382,8 +384,55 @@ if __name__ == "__main__":
                 'NORMALIZE': True,
                 'REDOX': False,
                 'USE_BINS': False,
-                'num_epochs': 500,
+                'num_epochs': 1000,
                 'active': True,
+
+                'network': lambda input_size: nn.Sequential(
+                            nn.Linear(input_size, 256),
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 64),
+                            nn.BatchNorm1d(64),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(64, 3)
+                        ),
+                'network_name': 'nobins-256-64-3'
+              },
+                                          {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'USE_BINS': False,
+                'num_epochs': 1000,
+                'active': True,
+                'add_noise': 100,
+                'noise_level': .01,
+                'network': lambda input_size: nn.Sequential(
+                            nn.Linear(input_size, 256),
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 64),
+                            nn.BatchNorm1d(64),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(64, 3)
+                        ),
+                'network_name': 'nobins-256-64-3'
+              },
+                                          {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'USE_BINS': False,
+                'num_epochs': 1000,
+                'active': True,
+                'add_noise': 200,
+                'noise_level': .01,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -453,26 +502,33 @@ if __name__ == "__main__":
         coffees = df_all['Coffee Name'].unique()
 
         #for fold, (train_index, test_index) in enumerate(kf.split(X_all, y_all)):
-        for fold, (train_index, test_index) in enumerate(kf.split(coffees)):
+        #for fold, (train_index, test_index) in enumerate(kf.split(coffees)):
+        for fold, test_coffee in enumerate(coffees):
+
             print()
             print("-"*10)
 
-            if fold == 0:
-                print (fold, flush=True, end="")
-            if fold == kf.get_n_splits() -1:
-                print(f", {fold}", flush=True)
-            else:
-                print(f", {fold}", end="", flush=True)
+            # if fold == 0:
+            #     print (fold, flush=True, end="")
+            # if fold == kf.get_n_splits() -1:
+            #     print(f", {fold}", flush=True)
+            # else:
+            #     print(f", {fold}", end="", flush=True)
 
-            df_train = df_all[df_all['Coffee Name'].isin(coffees[train_index])]
-            df_test = df_all[df_all['Coffee Name'].isin(coffees[test_index])]
+            # this is for kfolds
+            #df_train = df_all[df_all['Coffee Name'].isin(coffees[train_index])]
+            #df_test = df_all[df_all['Coffee Name'].isin(coffees[test_index])]
+
+            test_mask = df_all['Coffee Name'] == test_coffee
+            df_train = df_all[~test_mask]
+            df_test = df_all[test_mask]
 
             # this stores all the experimental results and data to save across runs
             e = {
                 'fold': fold,
-                'train_index': train_index,
-                'test_index': test_index,
-
+                #'train_index': train_index,
+                #'test_index': test_index,
+                'test_coffee': test_coffee,
                 'all_data_path': all_data_path,
                 'experiment_name': experiment_name
             }

@@ -56,17 +56,22 @@ if __name__ == "__main__":
                     'train_TDS_r2', 'test_TDS_r2',
                         ]].groupby(['experiment_name']).agg('mean')
 
-    df_avg.sort_values(by='test_HPLC_Caff_r2', ascending=False, inplace=True)
+    df_avg['test_r2'] = (df_avg['test_HPLC_Caff_r2'] + df_avg['test_HPLC_CGA_r2'] + df_avg['test_TDS_r2']) / 3
+
+    df_avg.sort_values(by='test_r2', ascending=False, inplace=True)
 
     # prints all test results
     print(tabulate.tabulate(df_avg,
                     floatfmt=".4f",
                     headers='keys', tablefmt='psql'))
 
-
+    #exit()
 
     exp = df_avg.iloc[0].name
 
+    #exp = 'CoffeeNetOX-NOISE20-0.005-nobins-256-3-1000'\
+    #exp = 'CoffeeNetOX-NOISE100-0.001-nobins-256-3-1000'
+    #exp = 'CoffeeNetOX-nobins-256-3-500'
     exp = 'CoffeeNetOX-NOISE20-0.005-nobins-256-3-1000'
     df_best = df[df['experiment_name'] == exp]
 
@@ -150,7 +155,7 @@ if __name__ == "__main__":
     lower_bound = mean_err - valrange
     upper_bound = mean_err + valrange
 
-    
+
     q1_err = np.percentile(err_ppm, 25, axis=0)
     q3_err = np.percentile(err_ppm, 75, axis=0)
     iqr_err = q3_err - q1_err
