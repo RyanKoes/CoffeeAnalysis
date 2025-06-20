@@ -61,19 +61,124 @@ colors = [
 ]
 
 # New files to predict caffeine content (empty by default, to be filled by user)
-predict_file_paths = ['voltammetry-files/A1.txt']
+predict_file_paths = ['voltammetry-files/A1.txt',
+                      'voltammetry-files/A2.txt',
+                      'voltammetry-files/A3.txt',
+                      'voltammetry-files/B1.txt',
+                      'voltammetry-files/B2.txt',
+                      'voltammetry-files/B3.txt',
+                      'voltammetry-files/C1.txt',
+                      'voltammetry-files/C2.txt',
+                      'voltammetry-files/C3.txt',
+                      'voltammetry-files/D1.txt',
+                      'voltammetry-files/D2.txt',
+                      'voltammetry-files/D3.txt',
+                      'voltammetry-files/E1.txt',
+                      'voltammetry-files/E2.txt',
+                      'voltammetry-files/E3.txt',
+                      'voltammetry-files/F1.txt',
+                      'voltammetry-files/F2.txt',
+                      'voltammetry-files/F3.txt',
+                      'voltammetry-files/G1.txt',
+                      'voltammetry-files/G2.txt',
+                      'voltammetry-files/G3.txt',
+                      'voltammetry-files/H1.txt',
+                      'voltammetry-files/H2.txt',
+                      'voltammetry-files/H3.txt',
+                      'voltammetry-files/I1.txt',
+                      'voltammetry-files/I2.txt',
+                      'voltammetry-files/I3.txt',
+                      'voltammetry-files/J1.txt',
+                      'voltammetry-files/J2.txt',
+                      'voltammetry-files/J3.txt',
+                      'voltammetry-files/K1.txt',
+                      'voltammetry-files/K2.txt',
+                      'voltammetry-files/K3.txt',
+                      'voltammetry-files/L1.txt',
+                      'voltammetry-files/L2.txt',
+                      'voltammetry-files/L3.txt',
+                      'voltammetry-files/M1.txt',
+                      'voltammetry-files/M2.txt',
+                      'voltammetry-files/M3.txt',
+                      'voltammetry-files/N1.txt',
+                      'voltammetry-files/N2.txt',
+                      'voltammetry-files/N3.txt',
+                      'voltammetry-files/dunkin1.txt',
+                      'voltammetry-files/dunkin2.txt',
+                      'voltammetry-files/dunkin3.txt',
+                      'voltammetry-files/mccafe1.txt',
+                      'voltammetry-files/mccafe2.txt',
+                      'voltammetry-files/mccafe3.txt',
+                      'voltammetry-files/sheetz1.txt',
+                      'voltammetry-files/sheetz2.txt',
+                      'voltammetry-files/sheetz3.txt',
+                      'voltammetry-files/sbpike1.txt',
+                      'voltammetry-files/sbpike2.txt',
+                      'voltammetry-files/sbpike3.txt'
+                      ]
 
-predict_names = ["FRC Decaf Colombian, med roast IH"]
+predict_names = ["FRC Decaf Colombian, med roast IH",
+                 "FRC Sugarcame Decaf Colombian, med roast IH",
+                 "FRC Swiss Water Decaf Colombian, med roast IH",
+                 "FRC Mexican medium roast",
+                 "FRC Sumatra medium roast",
+                 "FRC Colombia medium roast",
+                 "FRC Kenya AA, medium roast IH",
+                 "FRC Ethiopia Yirgacheffe, light roast IH",
+                 "FRC ROBUSTA Brazil, medium roast IH",
+                 "FRC Brazil Cerrado, light roast IH",
+                 "FRC Brazil Cerrado, medium roast IH",
+                 "FRC Brazil Cerrado, dark roast IH",
+                 "FRC Brazil Cerrado, medium roast IH- High BR",
+                 "FRC Ethiopia Yirgacheffe, light roast IH- High BR",
+                 "Dunkin Original Blend, 5/22 8am",
+                 "McDonald's Regular Coffee, 5/22 8am",
+                 "Sheetz Classic Coffee (100% arabica), 12oz refill  5/22 8am",
+                 "Starbucks Pike Place Roast, 5/22 8am"]
 
 # ACTUAL CAFFEINE VALUES FOR PREDICTION SAMPLES
 # Add your actual caffeine values here (in ppm) - one value per group of 3 files
 # These should correspond to the predict_names groups
 actual_caffeine_ppm = [
-    75
+    75,  # FRC Decaf Colombian
+    60,  # FRC Sugarcame Decaf Colombian
+    40,  # FRC Swiss Water Decaf Colombian
+    820,  # FRC Mexican medium roast
+    830,  # FRC Sumatra medium roast
+    770,  # FRC Colombia medium roast
+    840,  # FRC Kenya AA
+    770,  # FRC Ethiopia Yirgacheffe
+    1220,  # FRC ROBUSTA Brazil
+    870,  # FRC Brazil Cerrado light
+    850,  # FRC Brazil Cerrado medium
+    860,  # FRC Brazil Cerrado dark
+    1100,  # FRC Brazil Cerrado medium High BR
+    1060,  # FRC Ethiopia Yirgacheffe High BR
+    530,  # Dunkin Original Blend
+    520,  # McDonald's Regular Coffee
+    420,  # Sheetz Classic Coffee
+    680,  # Starbucks Pike Place Roast
 ]
 
 predict_colors = [
     "#1f77b4",  # blue
+    "#ff7f0e",  # orange
+    "#2ca02c",  # green
+    "#d62728",  # red
+    "#9467bd",  # purple
+    "#8c564b",  # brown
+    "#e377c2",  # pink
+    "#7f7f7f",  # gray
+    "#bcbd22",  # yellow-green
+    "#17becf",  # cyan
+    "#aec7e8",  # light blue
+    "#ffbb78",  # light orange
+    "#98df8a",  # light green
+    "#ff9896",  # light red
+    "#c5b0d5",  # light purple
+    "#c49c94",  # light brown
+    "#f7b6d2",  # light pink
+    "#c7c7c7"  # light gray
 ]
 
 data = []
@@ -345,8 +450,6 @@ def train_and_evaluate_model(averages, ground_truth):
 '''
 Processes the data in chunks of 3 and calculates the averages and standard deviations.
 '''
-
-
 def process_chunks(data):
     print(f"\nProcessing {len(data)} response values in chunks of 3")
     averages = []
@@ -408,8 +511,6 @@ def process_predictions(model, prediction_data):
 '''
 Evaluate prediction accuracy against actual values
 '''
-
-
 def evaluate_prediction_accuracy(predicted_values, actual_values, sample_names):
     if len(predicted_values) == 0 or len(actual_values) == 0:
         print("No prediction data available for accuracy evaluation.")
@@ -453,7 +554,7 @@ def evaluate_prediction_accuracy(predicted_values, actual_values, sample_names):
     print(f"{'Sample':<50} {'Actual':<10} {'Predicted':<10} {'Error':<10} {'% Error':<10}")
     print("-" * 90)
 
-    for name, actual, predicted in zip(predict_names, actual_caffeine_ppm, pred_caffeine):
+    for i, (name, actual, predicted) in enumerate(zip(sample_names, actual_values, predicted_values)):
         error = predicted - actual
         percent_error = abs(error / actual) * 100 if actual != 0 else 0
         print(f"{name:<50} {actual:<10.1f} {predicted:<10.1f} {error:<10.1f} {percent_error:<10.1f}")
@@ -583,6 +684,26 @@ def set_actual_caffeine_values(values):
     global actual_caffeine_ppm
     actual_caffeine_ppm = values
 
+# Calculate and print overall percent error and R² score
+def print_model_performance(actual_values, predicted_values):
+    if len(actual_values) != len(predicted_values):
+        print("Error: Mismatch in the number of actual and predicted values.")
+        return
+
+    # Calculate R² score
+    r2 = r2_score(actual_values, predicted_values)
+
+    # Calculate Mean Absolute Error (MAE)
+    mae = mean_absolute_error(actual_values, predicted_values)
+
+    # Calculate overall percent error
+    percent_error = (mae / np.mean(actual_values)) * 100
+
+    # Print results
+    print("\nModel Performance:")
+    print(f"  R² Score: {r2:.4f}")
+    print(f"  Overall Percent Error: {percent_error:.2f}%")
+
 
 if __name__ == '__main__':
     # Example of how to add prediction files (can be modified by user)
@@ -631,6 +752,7 @@ if __name__ == '__main__':
 
     # Train the model and make predictions on training data
     model, predictions = train_and_evaluate_model(averages, caffeine_ppm)
+    print_model_performance(caffeine_ppm, predictions)
 
     # Calculate percent error
     mae = mean_absolute_error(caffeine_ppm, predictions)
@@ -700,6 +822,8 @@ if __name__ == '__main__':
 
     plt.fill_between(x_range, regression_line - prediction_interval, regression_line + prediction_interval,
                      color='red', alpha=0.2, label='Prediction Interval (95%)')
+
+    print_model_performance(caffeine_ppm, predictions)
 
     # Plot prediction data points if available
     if pred_averages:

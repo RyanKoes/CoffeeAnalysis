@@ -439,6 +439,7 @@ def train_and_evaluate_model(averages, ground_truth):
     mse = mean_squared_error(y, predictions)
 
     # Print model evaluation metrics
+    print(len(averages), "samples used for training")
     print(f"R² Score (Accuracy): {r2:.4f}")
     print(f"Mean Squared Error: {mse:.4f}")
 
@@ -527,6 +528,7 @@ def evaluate_prediction_accuracy(predicted_values, actual_values, sample_names):
     mean_percent_error = np.mean(percent_errors) if percent_errors else 0
 
     print(f"Prediction Accuracy Metrics:")
+    print(len(predicted_values), "samples used for evaluation")
     print(f"  R² Score: {r2_pred:.4f}")
     print(f"  Mean Absolute Error: {mae_pred:.2f} ppm")
     print(f"  Mean Squared Error: {mse_pred:.2f} ppm²")
