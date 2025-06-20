@@ -28,6 +28,17 @@ if __name__ == "__main__":
             'REDOX': False,
             'BINS': 64,
             'USE_BINS': False,
+            'num_epochs': 50,
+            'active': False,
+
+            'network': lambda input_size: FastConv1DModel(input_length=input_size, num_outputs=3),
+            'network_name': 'conv1d-fast-minimal'
+        },
+        {
+            'NORMALIZE': True,
+            'REDOX': False,
+            'BINS': 64,
+            'USE_BINS': False,
             'num_epochs': 1,
             'active': False,
 
