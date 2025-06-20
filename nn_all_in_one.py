@@ -9,7 +9,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import r2_score, mean_absolute_error
 import matplotlib.pyplot as plt
-from Models import VoltammogramConvNet, VoltammogramLSTMNet
+from Models import VoltammogramConvNet, VoltammogramLSTMNet, FastConv1DModel
 
 import torch
 import torch.nn as nn
@@ -22,7 +22,8 @@ if __name__ == "__main__":
         exit()
     print(f"Using device: {device}")
 
-    experiment_params =[ {
+    experiment_params =[
+        {
             'NORMALIZE': True,
             'REDOX': False,
             'BINS': 64,
@@ -39,7 +40,7 @@ if __name__ == "__main__":
             'USE_BINS': False,
             'BINS': 64,
             'num_epochs': 100,
-            'active': True,
+            'active': False,
             'network': lambda input_size: VoltammogramLSTMNet(input_length=input_size, num_outputs=3),
             'network_name': 'lstm-128x2-laststep-3out'
         },

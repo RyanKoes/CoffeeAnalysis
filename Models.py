@@ -3,7 +3,23 @@ import torch.nn as nn
 import torch
 import torch.nn as nn
 
+# Just a proof of concept basically
+class FastConv1DModel(nn.Module):
+    def __init__(self, input_length, num_outputs=3):
+        super().__init__()
+        self.model = nn.Sequential(
+            nn.Conv1d(1, 8, kernel_size=3, padding=1),  # small conv
+            nn.ReLU(),
+            nn.AdaptiveAvgPool1d(1),
+            nn.Flatten(),
+            nn.Linear(8, num_outputs)
+        )
 
+    def forward(self, x):
+        x = x.unsqueeze(1)
+        return self.model(x)
+
+# 1D Conv with 1D pooling and tanh at beginning
 class VoltammogramConvNet(nn.Module):
     def __init__(self, input_length, num_outputs=3):
         super().__init__()
