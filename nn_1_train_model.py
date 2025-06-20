@@ -230,7 +230,7 @@ def train_coffeenet(model, X, y, X_test = None, y_test = None, num_epochs=100):
 
     return model
 
-def evaluate_model(model, X, y):
+def evaluate_model(model, X):
     """
     Use the trained model to predict y values from X values.
     returns the predictions and evaluation metrics.

@@ -11,6 +11,7 @@ from sklearn.metrics import r2_score, mean_absolute_error
 from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
 
+from pprint import pprint
 import torch
 import torch.nn as nn
 
@@ -27,6 +28,35 @@ if __name__ == "__main__":
     #kf = KFold(n_splits=10, shuffle=True, random_state=42)
 
     experiment_params =[
+                      {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'USE_BINS': False,
+                'num_epochs': 300,
+                'active': True,
+
+                'network': lambda input_size: nn.Sequential(
+                            nn.Linear(input_size, 256),
+                            nn.BatchNorm1d(256),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+
+                            nn.Linear(256, 3)
+                        ),
+                'network_name': 'nobins-256-3'
+                },
+                    {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'USE_BINS': False,
+                'num_epochs': 300,
+                'active': True,
+
+                'network': lambda input_size: nn.Sequential(
+                            nn.Linear(input_size, 3),
+                        ),
+                'network_name': 'nobins-3'
+              },
             {
                 'NORMALIZE': True,
                 'REDOX': False,
@@ -346,18 +376,7 @@ if __name__ == "__main__":
                         ),
                 'network_name': 'nobins-256-3'
               },
-              {
-                'NORMALIZE': True,
-                'REDOX': False,
-                'USE_BINS': False,
-                'num_epochs': 300,
-                'active': True,
 
-                'network': lambda input_size: nn.Sequential(
-                            nn.Linear(input_size, 3),
-                        ),
-                'network_name': 'nobins-3'
-              },
                             {
                 'NORMALIZE': True,
                 'REDOX': False,
@@ -497,16 +516,23 @@ if __name__ == "__main__":
 
         target_names = ['HPLC_Caff', 'HPLC_CGA', 'TDS']
 
-
+        # X_all = np.array(df_all['cv_raw'].tolist())
+        # y_all = np.array(df_all[target_names].values)
 
         coffees = df_all['Coffee Name'].unique()
 
         #for fold, (train_index, test_index) in enumerate(kf.split(X_all, y_all)):
         #for fold, (train_index, test_index) in enumerate(kf.split(coffees)):
+
+        exp_train_actual = []
+        exp_train_preditions = []
+        exp_test_actual = []
+        exp_test_predittions = []
+
         for fold, test_coffee in enumerate(coffees):
 
-            print()
-            print("-"*10)
+            #print()
+            #print("-"*10, f'FOLD {fold} = {test_coffee}', "-"*10, flush=True)
 
             # if fold == 0:
             #     print (fold, flush=True, end="")
@@ -539,8 +565,12 @@ if __name__ == "__main__":
 
             X_train = np.array(df_train['cv_raw'].to_list())
             y_train = np.array(df_train[target_names].values)
-
+            
             input_size = X_train.shape[1]
+
+            #print("This should be empyt:")
+            assert df_train[df_train['Coffee Name'] == test_coffee].empty
+            #print(f"Input size is: {input_size}")
 
             # X_mean = np.mean(X_train, axis = 1)
 
@@ -590,7 +620,7 @@ if __name__ == "__main__":
             e['model_path'] = model_path
             if model_path.exists():
                 #print(f"Model {model_path} already exists. Loading...")
-                checkpoint = torch.load(model_path, map_location=device)
+                checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model_state_dict'])
                 model.to(device)
             else:
@@ -613,10 +643,16 @@ if __name__ == "__main__":
 
 
             # evaluate the model
-            predictions = evaluate_model(model, X_train_standard, y_train_standard)
+            predictions = evaluate_model(model, X_train_standard)
 
             # un standardize
             predictions_original_scale = y_scaler.inverse_transform(predictions)
+
+            #print(y_train.shape)
+            #print(exp_train_actual.shape)
+
+            exp_train_actual.append(y_train)
+            exp_train_preditions.append(predictions_original_scale) 
 
             #
             for i, name in enumerate(target_names):
@@ -624,24 +660,57 @@ if __name__ == "__main__":
                 e[f'train_{name}_mae'] = mean_absolute_error(y_train[:, i], predictions_original_scale[:, i])
                 e[f'train_{name}_predictions'] = predictions_original_scale[:, i]
                 e[f'train_{name}_actual'] = y_train[:, i]
-                e[f'train_{name}_error_pct'] = 100.0 * (predictions_original_scale[:, i] - y_train[:, i]) / y_train[:, i]
+                #e[f'train_{name}_error_pct'] = 100.0 * (predictions_original_scale[:, i] - y_train[:, i]) / y_train[:, i]
 
             # evaluate on test data
-            test_predictions = evaluate_model(model, X_test_standard, y_test_standard)
+            test_predictions = evaluate_model(model, X_test_standard)
 
             predictions_original_scale_test = y_scaler.inverse_transform(test_predictions)
 
+
+            #exp_test_actual.append(y_test)
+            #exp_test_predittions.append(predictions_original_scale_test)
+            exp_test_actual.append(y_test)
+            exp_test_predittions.append(predictions_original_scale_test)
+
             for i, name in enumerate(target_names):
-                e[f'test_{name}_r2'] = r2_score(y_test[:, i], predictions_original_scale_test[:, i])
-                e[f'test_{name}_mae'] = mean_absolute_error(y_test[:, i], predictions_original_scale_test[:, i])
+#                e[f'test_{name}_r2'] = r2_score(y_test[:, i], predictions_original_scale_test[:, i])
+#                e[f'test_{name}_mae'] = mean_absolute_error(y_test[:, i], predictions_original_scale_test[:, i])
                 e[f'test_{name}_predictions'] = predictions_original_scale_test[:, i]
                 e[f'test_{name}_actual']= y_test[:, i]
-                e[f'test_{name}_error_pct'] = 100.0 * (predictions_original_scale_test[:, i] - y_test[:, i]) / y_test[:, i]
+#                e[f'test_{name}_error_pct'] = 100.0 * (predictions_original_scale_test[:, i] - y_test[:, i]) / y_test[:, i]
 
 
+            #pprint(e)
+            #exit()
 
-            exp_results.append(e)
+        exp_test_actual = np.concat(exp_test_actual)
+        exp_test_predittions = np.concat(exp_test_predittions)
+        exp_train_actual = np.concat(exp_train_actual)
+        exp_train_preditions = np.concat(exp_train_preditions)
 
+        e={
+            'experiment_name': experiment_name,
+            'train_actual': exp_train_actual,
+            'train_preditions': exp_train_preditions,
+            'train_r2': [r2_score(exp_train_actual[:, i], exp_train_preditions[:, i]) for i in range(len(target_names))],
+            'train_mae': [mean_absolute_error(exp_train_actual[:,i], exp_train_preditions[:,i]) for i in range(len(target_names))],
+            
+
+            'test_actual': exp_test_actual,
+            'test_predittions': exp_test_predittions,
+            'test_r2': [r2_score(exp_test_actual[:, i], exp_test_predittions[:, i]) for i in range(len(target_names))],
+            'test_mae': [mean_absolute_error(exp_test_actual[:,i], exp_test_predittions[:,i]) for i in range(len(target_names))],
+        }
+        e['test_r2_avg'] = np.mean(e['test_r2'])
+        e['test_mae_avg'] = np.mean(e['test_mae'])
+        e['train_r2_avg'] = np.mean(e['train_r2'])
+        e['train_mae_avg'] = np.mean(e['train_mae'])
+
+        exp_results.append(e)
+
+
+        
 
 
 ### AFTER RUNNING EVERYTHING PRINT THE RESULTS ###
@@ -651,31 +720,55 @@ if __name__ == "__main__":
 df_results = pd.DataFrame(exp_results)
 
 # add percent errors
-for i, name in enumerate(target_names):
-    df_results[f'train_{name}_error_pct_mean'] = df_results[f'train_{name}_error_pct'].apply(np.mean)
-    df_results[f'test_{name}_error_pct_mean'] = df_results[f'test_{name}_error_pct'].apply(np.mean)
+# for i, name in enumerate(target_names):
+#     df_results[f'train_{name}_error_pct_mean'] = df_results[f'train_{name}_error_pct'].apply(np.mean)
+#     df_results[f'test_{name}_error_pct_mean'] = df_results[f'test_{name}_error_pct'].apply(np.mean)
 
 
-# aggregate by fold
-df_avg = df_results[['experiment_name', 'fold',
-                   'train_HPLC_Caff_r2', 'test_HPLC_Caff_r2',
-                   'train_HPLC_CGA_r2', 'test_HPLC_CGA_r2',
-                   'train_TDS_r2', 'test_TDS_r2',
-                    ]].groupby(['experiment_name']).agg('mean')
+# print(df_results[['experiment_name', 'fold',
+#                    'train_HPLC_Caff_r2', 'test_HPLC_Caff_r2',
+#                    'train_HPLC_CGA_r2', 'test_HPLC_CGA_r2',
+#                    'train_TDS_r2', 'test_TDS_r2',
+#                     ]])
 
-df_avg.sort_values(by='test_HPLC_Caff_r2', ascending=False, inplace=True)
+# df_results['train_r2_avg']= np.mean(df_results['train_r2'])
+# df_results['test_r2_avg']= np.mean(df_results['test_r2'])
+# df_results['train_mae_avg']= np.mean(df_results['train_mae'])
+# df_results['test_mae_avg']= np.mean(df_results['test_mae'])
 
-print(tabulate.tabulate(df_avg,
-                   floatfmt=".4f",
-                   headers='keys', tablefmt='psql'))
+print(tabulate.tabulate(df_results[['experiment_name',                                
+                   'train_r2_avg', 'test_r2_avg',
+                   'train_mae_avg', 'test_mae_avg',
+                   'train_r2', 'train_mae',
+                   'test_r2', 'test_mae'
+                    ]], headers='keys', tablefmt='psql', floatfmt=".4f"))
 
-df_best = df_results[df_results['experiment_name'] == df_avg.iloc[0].name]
 
-print(tabulate.tabulate(df_best[['experiment_name', 'fold',
-                   'train_HPLC_Caff_r2', 'test_HPLC_Caff_r2',
-                   'train_HPLC_CGA_r2', 'test_HPLC_CGA_r2',
-                   'train_TDS_r2', 'test_TDS_r2'
-                    ]], floatfmt=".4f",  headers='keys', tablefmt='psql'))
+
+
+
+# # aggregate by fold
+# df_avg = df_results[['experiment_name', 'fold',
+#                    'train_HPLC_Caff_r2', 'test_HPLC_Caff_r2',
+#                    'train_HPLC_CGA_r2', 'test_HPLC_CGA_r2',
+#                    'train_TDS_r2', 'test_TDS_r2',
+#                     ]].groupby(['experiment_name']).agg('mean')
+
+# df_avg.sort_values(by='test_HPLC_Caff_r2', ascending=False, inplace=True)
+
+# print(tabulate.tabulate(df_avg,
+#                    floatfmt=".4f",
+#                    headers='keys', tablefmt='psql'))
+
+
+
+# df_best = df_results[df_results['experiment_name'] == df_avg.iloc[0].name]
+
+# print(tabulate.tabulate(df_best[['experiment_name', 'fold',
+#                    'train_HPLC_Caff_r2', 'test_HPLC_Caff_r2',
+#                    'train_HPLC_CGA_r2', 'test_HPLC_CGA_r2',
+#                    'train_TDS_r2', 'test_TDS_r2'
+#                     ]], floatfmt=".4f",  headers='keys', tablefmt='psql'))
 
 
 results_path = DATADIR / 'results.pkl'
