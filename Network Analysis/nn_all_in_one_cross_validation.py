@@ -11,7 +11,7 @@ from sklearn.metrics import r2_score, mean_absolute_error
 from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from Models import VoltammogramConvNet
+from Models import VoltammogramConvNet, VoltammogramLSTMNet
 
 import torch
 import torch.nn as nn
@@ -24,26 +24,39 @@ if __name__ == "__main__":
         exit()
     print(f"Using device: {device}")
 
+    COMPLEX_MODELS = False
+    SIMPLE_MODELS = True
+
+
 
     # do leave one out validation
     #kf = KFold(n_splits=10, shuffle=True, random_state=42)
 
     experiment_params =[
-        {
-            'NORMALIZE': True,
-            'REDOX': False,
-            'USE_BINS': False,
-            'num_epochs': 1000,
-            'active': True,
-            'network': lambda input_size: VoltammogramConvNet(input_length=input_size, num_outputs=3),
-            'network_name': 'conv1d-volta-3out-tanh-relu'
-        },
+            {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'USE_BINS': False,
+                'num_epochs': 1,
+                'active': COMPLEX_MODELS,
+                'network': lambda input_size: VoltammogramConvNet(input_size, num_outputs=3),
+                'network_name': 'ConvNet'
+            },
+            {
+                'NORMALIZE': True,
+                'REDOX': False,
+                'USE_BINS': False,
+                'num_epochs': 1,
+                'active': COMPLEX_MODELS,
+                'network': lambda input_size: VoltammogramLSTMNet(input_size, num_outputs=3),
+                'network_name': 'LSTMNet'
+            },
             {
                 'NORMALIZE': True,
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 2000,
-                'active': False,
+                'active': SIMPLE_MODELS,
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 1024),
                             nn.BatchNorm1d(1024),
@@ -74,7 +87,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
-                'active': False,
+                'active': SIMPLE_MODELS,
 
                 'network': lambda input_size:nn.Sequential(
                             nn.Linear(input_size, 1024),
@@ -102,7 +115,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 500,
-                'active': False,
+                'active': SIMPLE_MODELS,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 1024),
@@ -134,7 +147,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 500,
-                'active': False,
+                'active': SIMPLE_MODELS,
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 1024),
                             nn.BatchNorm1d(1024),
@@ -161,7 +174,7 @@ if __name__ == "__main__":
                 'USE_BINS': False,
                 'num_epochs': 500,
 
-                'active': False,
+                'active': SIMPLE_MODELS,
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 1024),
                             nn.BatchNorm1d(1024),
@@ -177,7 +190,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 300,
-                'active': False,
+                'active': SIMPLE_MODELS,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -194,7 +207,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 500,
-                'active': False,
+                'active': SIMPLE_MODELS,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -211,7 +224,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
-                'active': False,
+                'active': SIMPLE_MODELS,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -228,7 +241,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
-                'active': False,
+                'active': SIMPLE_MODELS,
                 'add_noise': 10,
                 'noise_level': 0.001,
 
@@ -247,7 +260,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
-                'active': False,
+                'active': SIMPLE_MODELS,
                 'add_noise': 100,
                 'noise_level': 0.001,
 
@@ -267,7 +280,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
-                'active': False,
+                'active': SIMPLE_MODELS,
                 'add_noise': 200,
                 'noise_level': 0.001,
 
@@ -286,7 +299,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
-                'active': False,
+                'active': SIMPLE_MODELS,
                 'add_noise': 20,
                 'noise_level': 0.005,
 
@@ -305,7 +318,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
-                'active': False,
+                'active': SIMPLE_MODELS,
                 'add_noise': 30,
                 'noise_level': 0.5,
 
@@ -324,7 +337,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
-                'active': False,
+                'active': SIMPLE_MODELS,
                 'add_noise': 50,
                 'noise_level': 5,
 
@@ -343,7 +356,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
-                'active': False,
+                'active': SIMPLE_MODELS,
                 'add_noise': 100,
                 'noise_level': .05,
 
@@ -362,7 +375,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 300,
-                'active': False,
+                'active': SIMPLE_MODELS,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 3),
@@ -374,7 +387,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
-                'active': False,
+                'active': SIMPLE_MODELS,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -396,7 +409,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
-                'active': False,
+                'active': SIMPLE_MODELS,
 
                 'network': lambda input_size: nn.Sequential(
                             nn.Linear(input_size, 256),
@@ -418,7 +431,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
-                'active': False,
+                'active': SIMPLE_MODELS,
                 'add_noise': 100,
                 'noise_level': .01,
                 'network': lambda input_size: nn.Sequential(
@@ -441,7 +454,7 @@ if __name__ == "__main__":
                 'REDOX': False,
                 'USE_BINS': False,
                 'num_epochs': 1000,
-                'active': False,
+                'active': SIMPLE_MODELS,
                 'add_noise': 200,
                 'noise_level': .01,
 
@@ -480,8 +493,12 @@ if __name__ == "__main__":
 
         experiment_name += 'REDOX-' if experiment["REDOX"] else "OX-"
 
-        if 'add_noise' in experiment:
-            experiment_name += f'NOISE{experiment['add_noise']}-{experiment['noise_level']}-' if experiment["add_noise"] else "NONOISE-"
+        if "add_noise" in experiment:
+            if experiment["add_noise"]:
+                experiment_name += f"NOISE{experiment['add_noise']}-{experiment['noise_level']}-"
+            else:
+                experiment_name += "NONOISE-"
+
         experiment_name += f"{experiment['network_name']}-{experiment['num_epochs']}"
 
         #print("-"*40)
@@ -491,7 +508,7 @@ if __name__ == "__main__":
 
         # build experiment data
         if all_data_path.exists():
-            #print(f"All data for {experiment_name} already exists. Loading...")
+            print(f"All data for {experiment_name} already exists. Loading...")
             df_all = pd.read_pickle(all_data_path)
 
         else:

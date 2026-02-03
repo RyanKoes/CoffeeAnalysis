@@ -177,7 +177,7 @@ if __name__ == "__main__":
 
     print(tabulate.tabulate(r, floatfmt=".1f", headers='keys', tablefmt='psql'))
 
-    # this creates the scatter plots of data
+    # this creates the scatter normalized_plots of data
     if 1:
 
         # Plotting

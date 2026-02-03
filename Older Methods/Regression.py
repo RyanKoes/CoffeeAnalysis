@@ -591,7 +591,7 @@ def plot_prediction_accuracy(predicted_values, actual_values, sample_names, pred
     if len(predicted_values) == 0 or len(actual_values) == 0:
         return
 
-    print(f"\nCreating prediction accuracy plots with {len(predicted_values)} predictions")
+    print(f"\nCreating prediction accuracy normalized_plots with {len(predicted_values)} predictions")
 
     # Ensure all arrays have the same length
     min_length = min(len(predicted_values), len(actual_values), len(sample_names))

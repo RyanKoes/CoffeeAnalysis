@@ -83,7 +83,7 @@ if __name__ == "__main__":
     #predictions_original_scale_test = predictions_normalized_test.numpy() * (y_std_train + 1e-8) + y_mean_train
     predictions_original_scale_test = y_scaler.inverse_transform(predictions)
 
-    # change targets for plots (display)
+    # change targets for normalized_plots (display)
     target_names = ['Caffeine', 'CGA', 'TDS']
     print("\nEvaluation on Test Data:")
     results = defaultdict(dict)

@@ -1,0 +1,490 @@
+from util import setup_mplt, DATADIR, PLOTDIR
+from nn_0_synthetic_data_gen import build_model_data, generate_combined_data
+from nn_1_train_model import CoffeeNetBase, train_coffeenet, evaluate_model
+
+from collections import defaultdict
+import tabulate
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score, mean_absolute_error
+from sklearn.model_selection import KFold
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+
+import torch
+import torch.nn as nn
+
+if __name__ == "__main__":
+    setup_mplt()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if device == 'cpu':
+        print("Warning: No GPU found, using CPU for training. Abort.")
+        exit()
+    print(f"Using device: {device}")
+
+
+    # Define 15 different network architectures to test
+    def get_network_architectures():
+        """Returns a list of 15 diverse network architectures"""
+        architectures = [
+            # Simple shallow networks
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 128),
+                    nn.BatchNorm1d(128),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(128, 1)
+                ),
+                'network_name': 'Simple-128-1'
+            },
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 256),
+                    nn.BatchNorm1d(256),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(256, 1)
+                ),
+                'network_name': 'Simple-256-1'
+            },
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 512),
+                    nn.BatchNorm1d(512),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(512, 1)
+                ),
+                'network_name': 'Simple-512-1'
+            },
+            # Two-layer networks with varying widths
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 128),
+                    nn.BatchNorm1d(128),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(128, 64),
+                    nn.BatchNorm1d(64),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(64, 1)
+                ),
+                'network_name': 'TwoLayer-128-64-1'
+            },
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 256),
+                    nn.BatchNorm1d(256),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(256, 64),
+                    nn.BatchNorm1d(64),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(64, 1)
+                ),
+                'network_name': 'TwoLayer-256-64-1'
+            },
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 256),
+                    nn.BatchNorm1d(256),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(256, 128),
+                    nn.BatchNorm1d(128),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(128, 1)
+                ),
+                'network_name': 'TwoLayer-256-128-1'
+            },
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 512),
+                    nn.BatchNorm1d(512),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(512, 128),
+                    nn.BatchNorm1d(128),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(128, 1)
+                ),
+                'network_name': 'TwoLayer-512-128-1'
+            },
+            # Three-layer networks
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 256),
+                    nn.BatchNorm1d(256),
+                    nn.ReLU(),
+                    nn.Dropout(0.15),
+                    nn.Linear(256, 128),
+                    nn.BatchNorm1d(128),
+                    nn.ReLU(),
+                    nn.Dropout(0.15),
+                    nn.Linear(128, 64),
+                    nn.BatchNorm1d(64),
+                    nn.ReLU(),
+                    nn.Dropout(0.15),
+                    nn.Linear(64, 1)
+                ),
+                'network_name': 'ThreeLayer-256-128-64-1'
+            },
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 512),
+                    nn.BatchNorm1d(512),
+                    nn.ReLU(),
+                    nn.Dropout(0.15),
+                    nn.Linear(512, 256),
+                    nn.BatchNorm1d(256),
+                    nn.ReLU(),
+                    nn.Dropout(0.15),
+                    nn.Linear(256, 128),
+                    nn.BatchNorm1d(128),
+                    nn.ReLU(),
+                    nn.Dropout(0.15),
+                    nn.Linear(128, 1)
+                ),
+                'network_name': 'ThreeLayer-512-256-128-1'
+            },
+            # Networks with higher dropout
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 256),
+                    nn.BatchNorm1d(256),
+                    nn.ReLU(),
+                    nn.Dropout(0.3),
+                    nn.Linear(256, 128),
+                    nn.BatchNorm1d(128),
+                    nn.ReLU(),
+                    nn.Dropout(0.3),
+                    nn.Linear(128, 1)
+                ),
+                'network_name': 'HighDrop-256-128-1'
+            },
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 512),
+                    nn.BatchNorm1d(512),
+                    nn.ReLU(),
+                    nn.Dropout(0.25),
+                    nn.Linear(512, 256),
+                    nn.BatchNorm1d(256),
+                    nn.ReLU(),
+                    nn.Dropout(0.25),
+                    nn.Linear(256, 1)
+                ),
+                'network_name': 'HighDrop-512-256-1'
+            },
+            # Wide shallow network
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 1024),
+                    nn.BatchNorm1d(1024),
+                    nn.ReLU(),
+                    nn.Dropout(0.2),
+                    nn.Linear(1024, 1)
+                ),
+                'network_name': 'Wide-1024-1'
+            },
+            # Bottleneck architectures
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 512),
+                    nn.BatchNorm1d(512),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(512, 64),
+                    nn.BatchNorm1d(64),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(64, 1)
+                ),
+                'network_name': 'Bottleneck-512-64-1'
+            },
+            # Four-layer deep network
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 512),
+                    nn.BatchNorm1d(512),
+                    nn.ReLU(),
+                    nn.Dropout(0.2),
+                    nn.Linear(512, 256),
+                    nn.BatchNorm1d(256),
+                    nn.ReLU(),
+                    nn.Dropout(0.2),
+                    nn.Linear(256, 128),
+                    nn.BatchNorm1d(128),
+                    nn.ReLU(),
+                    nn.Dropout(0.2),
+                    nn.Linear(128, 64),
+                    nn.BatchNorm1d(64),
+                    nn.ReLU(),
+                    nn.Dropout(0.2),
+                    nn.Linear(64, 1)
+                ),
+                'network_name': 'FourLayer-512-256-128-64-1'
+            },
+            # Pyramid architecture
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 384),
+                    nn.BatchNorm1d(384),
+                    nn.ReLU(),
+                    nn.Dropout(0.15),
+                    nn.Linear(384, 192),
+                    nn.BatchNorm1d(192),
+                    nn.ReLU(),
+                    nn.Dropout(0.15),
+                    nn.Linear(192, 96),
+                    nn.BatchNorm1d(96),
+                    nn.ReLU(),
+                    nn.Dropout(0.15),
+                    nn.Linear(96, 1)
+                ),
+                'network_name': 'Pyramid-384-192-96-1'
+            },
+        ]
+        return architectures
+
+
+    # Create experiment configurations for each target
+    base_config = {
+        'NORMALIZE': False,
+        'REDOX': False,
+        'USE_BINS': False,
+        'num_epochs': 2000,
+    }
+
+    target_configs = {}
+    for target_name in ['HPLC_Caff', 'HPLC_CGA', 'TDS']:
+        experiments = []
+        for arch in get_network_architectures():
+            exp = base_config.copy()
+            exp.update(arch)
+            experiments.append(exp)
+        target_configs[target_name] = experiments
+
+    exp_results = []
+
+    # Loop through each target variable
+    for target_name, experiments in target_configs.items():
+        print(f"\n{'=' * 60}")
+        print(f"Training models for {target_name}")
+        print(f"{'=' * 60}")
+
+        for experiment in tqdm(experiments, desc=f"{target_name} experiments"):
+            experiment_name = f'SingleTarget-{target_name}-'
+
+            if experiment.get('bins') == True:
+                experiment_name += 'NORM-' if experiment["NORMALIZE"] else "NONORM-"
+
+            experiment_name += 'REDOX-' if experiment["REDOX"] else "OX-"
+
+            if "add_noise" in experiment:
+                if experiment["add_noise"]:
+                    experiment_name += f"NOISE{experiment['add_noise']}-{experiment['noise_level']}-"
+                else:
+                    experiment_name += "NONOISE-"
+
+            experiment_name += f"{experiment['network_name']}-{experiment['num_epochs']}"
+
+            print(f"\nRunning experiment: {experiment_name}")
+
+            all_data_path = DATADIR / f'{experiment_name}_all.pkl'
+
+            # Build experiment data
+            if all_data_path.exists():
+                print(f"All data for {experiment_name} already exists. Loading...")
+                df_all = pd.read_pickle(all_data_path)
+            else:
+                df_all = build_model_data(test_train_split=False, **experiment)
+                df_all.to_pickle(all_data_path)
+
+            coffees = df_all['Coffee Name'].unique()
+
+            # Leave-one-coffee-out cross-validation
+            for fold, test_coffee in enumerate(coffees):
+                print(f"Fold {fold}: Testing on {test_coffee}")
+
+                test_mask = df_all['Coffee Name'] == test_coffee
+                df_train = df_all[~test_mask]
+                df_test = df_all[test_mask]
+
+                e = {
+                    'fold': fold,
+                    'test_coffee': test_coffee,
+                    'all_data_path': all_data_path,
+                    'experiment_name': experiment_name,
+                    'target': target_name
+                }
+
+                # Setup train data
+                X_train = np.array(df_train['cv_raw'].to_list())
+                y_train = np.array(df_train[target_name].values).reshape(-1, 1)  # Single target
+
+                input_size = X_train.shape[1]
+
+                # Add noise if specified
+                if 'add_noise' in experiment and experiment['add_noise']:
+                    noise_num = experiment['add_noise']
+                    noise_level = experiment['noise_level']
+
+                    X_list = []
+                    y_list = []
+
+                    for _ in range(noise_num):
+                        noise = np.random.normal(0, noise_level, X_train.shape)
+                        X_list.append(X_train + noise)
+                        y_list.append(y_train)
+
+                    X_train = np.concatenate(X_list)
+                    y_train = np.concatenate(y_list)
+
+                X_scaler = StandardScaler().fit(X_train)
+                y_scaler = StandardScaler().fit(y_train)
+
+                X_train_standard = X_scaler.transform(X_train)
+                y_train_standard = y_scaler.transform(y_train)
+
+                # Setup test data
+                X_test = np.array(df_test['cv_raw'].to_list())
+                y_test = np.array(df_test[target_name].values).reshape(-1, 1)  # Single target
+
+                X_test_standard = X_scaler.transform(X_test)
+                y_test_standard = y_scaler.transform(y_test)
+
+                model = CoffeeNetBase()
+                model.network = experiment['network'](input_size)
+
+                # Train the model
+                model_path = DATADIR / f'{experiment_name}-fold-{fold}.pth'
+                e['model_path'] = model_path
+
+                if model_path.exists():
+                    checkpoint = torch.load(model_path, map_location=device)
+                    model.load_state_dict(checkpoint['model_state_dict'])
+                    model.to(device)
+                else:
+                    model.to(device)
+                    model = train_coffeenet(model,
+                                            X_train_standard, y_train_standard,
+                                            X_test_standard, y_test_standard,
+                                            num_epochs=experiment['num_epochs'])
+
+                    torch.save({
+                        'model_state_dict': model.state_dict(),
+                        'X_mean': X_scaler.mean_.tolist(),
+                        'X_std': X_scaler.scale_.tolist(),
+                        'y_mean': y_scaler.mean_.tolist(),
+                        'y_std': y_scaler.scale_.tolist(),
+                        'input_size': input_size
+                    }, model_path)
+
+                # Evaluate on training data
+                train_predictions = evaluate_model(model, X_train_standard, y_train_standard)
+                train_predictions_original = y_scaler.inverse_transform(train_predictions)
+
+                e[f'train_{target_name}_r2'] = r2_score(y_train, train_predictions_original)
+                e[f'train_{target_name}_mae'] = mean_absolute_error(y_train, train_predictions_original)
+                e[f'train_{target_name}_predictions'] = train_predictions_original.flatten()
+                e[f'train_{target_name}_actual'] = y_train.flatten()
+                e[f'train_{target_name}_error_pct'] = 100.0 * (
+                        train_predictions_original.flatten() - y_train.flatten()) / y_train.flatten()
+
+                # Evaluate on test data
+                test_predictions = evaluate_model(model, X_test_standard, y_test_standard)
+                test_predictions_original = y_scaler.inverse_transform(test_predictions)
+
+                e[f'test_{target_name}_r2'] = r2_score(y_test, test_predictions_original)
+                e[f'test_{target_name}_mae'] = mean_absolute_error(y_test, test_predictions_original)
+                e[f'test_{target_name}_predictions'] = test_predictions_original.flatten()
+                e[f'test_{target_name}_actual'] = y_test.flatten()
+                e[f'test_{target_name}_error_pct'] = 100.0 * (
+                        test_predictions_original.flatten() - y_test.flatten()) / y_test.flatten()
+
+                exp_results.append(e)
+
+    ### PRINT RESULTS ###
+
+    df_results = pd.DataFrame(exp_results)
+
+    # Add percent error means
+    for target_name in target_configs.keys():
+        df_results[f'train_{target_name}_error_pct_mean'] = df_results[f'train_{target_name}_error_pct'].apply(
+            lambda x: np.mean(x) if isinstance(x, np.ndarray) else np.nan
+        )
+        df_results[f'test_{target_name}_error_pct_mean'] = df_results[f'test_{target_name}_error_pct'].apply(
+            lambda x: np.mean(x) if isinstance(x, np.ndarray) else np.nan
+        )
+
+    # Print results for each target
+    for target_name in target_configs.keys():
+        print(f"\n{'=' * 60}")
+        print(f"Results for {target_name}")
+        print(f"{'=' * 60}")
+
+        df_target = df_results[df_results['target'] == target_name]
+
+        df_avg = df_target[['experiment_name', 'fold',
+                            f'train_{target_name}_r2', f'test_{target_name}_r2']].groupby(['experiment_name']).agg(
+            'mean')
+
+        df_avg.sort_values(by=f'test_{target_name}_r2', ascending=False, inplace=True)
+
+        print(tabulate.tabulate(df_avg, floatfmt=".4f", headers='keys', tablefmt='psql'))
+
+        # Print best model details
+        best_exp_name = df_avg.iloc[0].name
+        df_best = df_target[df_target['experiment_name'] == best_exp_name]
+
+        print(f"\nBest model: {best_exp_name}")
+        print(tabulate.tabulate(df_best[['experiment_name', 'fold', 'test_coffee',
+                                         f'train_{target_name}_r2', f'test_{target_name}_r2',
+                                         f'train_{target_name}_mae', f'test_{target_name}_mae']],
+                                floatfmt=".4f", headers='keys', tablefmt='psql'))
+
+        # Print top 5 architectures summary
+        print(f"\nTop 5 Architectures for {target_name}:")
+        top_5 = df_avg.head(5)
+        print(tabulate.tabulate(top_5, floatfmt=".4f", headers='keys', tablefmt='psql'))
+
+    # Save results
+    results_path = DATADIR / 'separate_model_results_expanded.pkl'
+    df_results.to_pickle(results_path)
+    print(f"\nResults saved to {results_path}")
+
+    # Create summary comparison across all targets
+    print(f"\n{'=' * 60}")
+    print("Summary: Best Architecture for Each Target")
+    print(f"{'=' * 60}")
+
+    summary_data = []
+    for target_name in target_configs.keys():
+        df_target = df_results[df_results['target'] == target_name]
+        df_avg = df_target.groupby('experiment_name').agg({
+            f'test_{target_name}_r2': 'mean',
+            f'test_{target_name}_mae': 'mean'
+        })
+        best_arch = df_avg[f'test_{target_name}_r2'].idxmax()
+        best_r2 = df_avg.loc[best_arch, f'test_{target_name}_r2']
+        best_mae = df_avg.loc[best_arch, f'test_{target_name}_mae']
+
+        # Extract just the network name from the experiment name
+        net_name = best_arch.split('-OX-')[-1].rsplit('-2000', 1)[0]
+
+        summary_data.append({
+            'Target': target_name,
+            'Best Architecture': net_name,
+            'Test R²': best_r2,
+            'Test MAE': best_mae
+        })
+
+    df_summary = pd.DataFrame(summary_data)
+    print(tabulate.tabulate(df_summary, floatfmt=".4f", headers='keys', tablefmt='psql', showindex=False))

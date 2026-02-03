@@ -85,7 +85,6 @@ FRC Brazil Cerrado, medium roast IH- High BR, 2x dilute""".split('\n')
         return df
 
 
-
 def combine_samples(samples, weights):
 
     #print("Combining samples:")

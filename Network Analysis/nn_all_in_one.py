@@ -51,7 +51,7 @@ if __name__ == "__main__":
             'USE_BINS': False,
             'BINS': 64,
             'num_epochs': 100,
-            'active': False,
+            'active': True,
             'network': lambda input_size: VoltammogramLSTMNet(input_length=input_size, num_outputs=3),
             'network_name': 'lstm-128x2-laststep-3out'
         },
