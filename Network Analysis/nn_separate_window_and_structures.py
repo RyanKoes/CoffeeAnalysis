@@ -67,6 +67,51 @@ if __name__ == "__main__":
         """Returns a list of 15 diverse network architectures"""
         architectures = [
             # Simple shallow networks
+            # Add these to the architectures list in get_network_architectures()
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 64),
+                    nn.ReLU(),
+                    nn.Linear(64, 1)
+                ),
+                'network_name': 'Tiny-64-1'
+            },
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 32),
+                    nn.Tanh(),
+                    nn.Linear(32, 1)
+                ),
+                'network_name': 'Tiny-32-1-Tanh'
+            },
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 64),
+                    nn.ReLU(),
+                    nn.Linear(64, 32),
+                    nn.ReLU(),
+                    nn.Linear(32, 1)
+                ),
+                'network_name': 'Small-64-32-1'
+            },
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 32),
+                    nn.LeakyReLU(0.1),
+                    nn.Linear(32, 16),
+                    nn.LeakyReLU(0.1),
+                    nn.Linear(16, 1)
+                ),
+                'network_name': 'Small-32-16-1-Leaky'
+            },
+            {
+                'network': lambda input_size: nn.Sequential(
+                    nn.Linear(input_size, 16),
+                    nn.ReLU(),
+                    nn.Linear(16, 1)
+                ),
+                'network_name': 'Minimal-16-1'
+            }
             {
                 'network': lambda input_size: nn.Sequential(
                     nn.Linear(input_size, 128),
@@ -297,7 +342,7 @@ if __name__ == "__main__":
         'NORMALIZE': False,
         'REDOX': False,
         'USE_BINS': False,
-        'num_epochs': 2000,
+        'num_epochs': 3000,
     }
 
     target_configs = {}

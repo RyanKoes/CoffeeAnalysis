@@ -39,7 +39,7 @@ for i, name in enumerate(pca_df['Name']):
     shortened_name = ' '.join(name.split()[:3])  # Take the first three words
     plt.text(pca_df['PC1'][i] + 0.05, pca_df['PC2'][i] + 0.05, shortened_name, fontsize=6)  # Reduced fontsize to 6
 
-plt.title('PCA of Coffee Tasting Notes and Grading')
+plt.title('PCA of Coffee Grading')
 plt.xlabel('Principal Component 1')
 plt.ylabel('Principal Component 2')
 plt.colorbar(scatter, label='Attribute Sum (Normalized)')

@@ -1,135 +1,61 @@
-import pandas as pd
 import xml.etree.ElementTree as ET
-import re
+import csv
+import os
 
-
-def parse_metrohm_mtc(file_path):
+def parse_cv_xml_to_csv(xml_file, csv_file):
     """
-    Parses a Metrohm .mtc (XML) file into a pandas DataFrame.
+    Parse electrochemistry data file (.xml or .mtc) and extract potential and current data to CSV.
 
-    This function is designed to handle Metrohm's common XML structure,
-    where measurement data is often stored as a large, comma-separated
-    string of interleaved potential and current values (e.g., [X1, Y1, X2, Y2...])
-    within a <curve> element.
-
-    Args:
-        file_path (str): The path to the .mtc file.
-
-    Returns:
-        pandas.DataFrame: A DataFrame containing the parsed data (Potential, Current),
-                          or an empty DataFrame if parsing fails.
+    Parameters:
+    xml_file (str): Path to input file (.xml or .mtc format)
+    csv_file (str): Path to output CSV file
     """
-    print(f"Attempting to parse file: {file_path}")
-    try:
-        # Load the XML file
-        tree = ET.parse(file_path)
-        root = tree.getroot()
+    # Parse the XML file
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
 
-        data_frames = []
+    # Find the potential and i1 (current) elements
+    potential_elem = root.find('.//potential')
+    current_elem = root.find('.//i1')
 
-        # Find all 'curve' elements, as this is where the measurement data resides
-        curves = root.findall('.//curve')
+    if potential_elem is None or current_elem is None:
+        raise ValueError("Could not find potential or i1 data in XML file")
 
-        if not curves:
-            print("Error: Could not find any <curve> elements in the file. Check the file structure.")
-            return pd.DataFrame()
+    # The data is comma-separated with line breaks (&#13;)
+    potential_text = potential_elem.text.replace('&#13;', '').replace('\n', '')
+    current_text = current_elem.text.replace('&#13;', '').replace('\n', '')
 
-        for curve in curves:
-            # Extract the curve name for identification
-            curve_name = curve.find('name').text if curve.find('name') is not None else 'Unnamed Curve'
-            print(f"--- Processing Curve: {curve_name} ---")
+    potentials = [float(x.strip()) for x in potential_text.split(',') if x.strip()]
+    currents = [float(x.strip()) for x in current_text.split(',') if x.strip()]
 
-            raw_data_string = None
+    # Verify data lengths match
+    if len(potentials) != len(currents):
+        print(f"Warning: Data length mismatch - {len(potentials)} potentials vs {len(currents)} currents")
 
-            # Strategy: Search for the child tag with the longest text content,
-            # which is likely the large, raw data block (potential/current points).
-            for child in curve.iter():
-                if child.text and len(child.text.strip()) > 50:
-                    # Check if the content is primarily numeric (digits, decimals, signs, e/E for scientific notation, commas)
-                    # We also allow for common XML line breaks/spaces to be present.
-                    if re.match(r'^[\s\d.,\-eE]+$',
-                                child.text.strip().replace('\n', '').replace('\r', '').replace(' ', '')):
-                        raw_data_string = child.text.strip()
-                        break
+    # Write to CSV
+    with open(csv_file, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['Potential (V)', 'Current (µA)'])
 
-            if not raw_data_string:
-                print(f"Warning: Could not find a large, numeric raw data string in curve '{curve_name}'. Skipping.")
-                continue
+        for pot, curr in zip(potentials, currents):
+            writer.writerow([pot, curr])
 
-            # 1. Clean and split the string data
-            # Remove all whitespace and split by comma
-            values_str = re.sub(r'\s+', '', raw_data_string)
-            raw_values = values_str.split(',')
+    print(f"Successfully converted {len(potentials)} data points to {csv_file}")
+    return len(potentials)
 
-            # 2. Filter and convert to numeric values
-            # Filters out potential status flags ('false', 'true') or empty strings
-            numeric_values = []
-            for val in raw_values:
-                # Regex to check for valid floating-point numbers
-                if re.match(r'^-?\d+(\.\d+)?([eE][+-]?\d+)?$', val):
-                    try:
-                        numeric_values.append(float(val))
-                    except ValueError:
-                        # Should not happen if regex is correct, but safe check
-                        continue
+if __name__ == "__main__":
+    input_directory = "MTC Files"
+    output_directory = "Parsed CSV"
 
-            # 3. Reshape the data (assuming interleaved [Potential, Current])
-            # For most electrochemistry (CV) data, there are 2 channels.
-            if len(numeric_values) < 2:
-                print(f"Error: Less than two numeric values found for curve '{curve_name}'. Skipping.")
-                continue
-
-            if len(numeric_values) % 2 != 0:
-                print(
-                    f"Warning: Numeric data count ({len(numeric_values)}) is odd for curve '{curve_name}'. Assuming 2 channels (Potential, Current) and dropping the last point.")
-                numeric_values = numeric_values[:-1]
-
-            # Reshape the 1D list into a 2D array (N rows, 2 columns)
-            data_2d = [
-                (numeric_values[i], numeric_values[i + 1])
-                for i in range(0, len(numeric_values), 2)
-            ]
-
-            # 4. Create DataFrame
-            df = pd.DataFrame(data_2d, columns=['Potential (V)', 'Current (A)'])
-            df.insert(0, 'Curve Name', curve_name)
-            data_frames.append(df)
-            print(f"Successfully parsed {len(df)} data points for {curve_name}.")
-
-        if data_frames:
-            # Concatenate all curve data into a single DataFrame
-            final_df = pd.concat(data_frames, ignore_index=True)
-            print("\nParsing complete. DataFrame Head:")
-            print(final_df.head())
-            return final_df
-        else:
-            print("No valid curve data could be extracted.")
-            return pd.DataFrame()
-
-    except FileNotFoundError:
-        print(f"Error: File not found at '{file_path}'. Please ensure the file is in the correct directory.")
-        return pd.DataFrame()
-    except ET.ParseError as e:
-        print(
-            f"Error: Failed to parse XML from file '{file_path}'. The file might be corrupted or not valid XML. Details: {e}")
-        return pd.DataFrame()
-    except Exception as e:
-        print(f"An unexpected error occurred during parsing: {e}")
-        return pd.DataFrame()
-
-
-# --- Execution Block ---
-if __name__ == '__main__':
-    # The uploaded file name is 'MetrohmCoffee1.mtc'
-    file_path = 'MetrohmCoffee1.mtc'
-
-    # Run the parser
-    df_data = parse_metrohm_mtc(file_path)
-
-    if not df_data.empty:
-        print("\n--- Final DataFrame Info ---")
-        df_data.info()
-
-        # Optional: Save the data to a CSV file
-        df_data.to_csv('parsed_metrohm_data.csv', index=False)
-        print("\nData also saved to 'parsed_metrohm_data.csv'")
+    # Loop through files in the input directory
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+    for file in os.listdir(input_directory):
+        if file.endswith(".mtc"):
+            input_file = os.path.join(input_directory, file)
+            output_file = os.path.join(output_directory, os.path.splitext(file)[0] + ".csv")
+            try:
+                num_points = parse_cv_xml_to_csv(input_file, output_file)
+                print(f"Converted {file}: {num_points} data points exported to {output_file}")
+            except Exception as e:
+                print(f"Error processing {file}: {e}")

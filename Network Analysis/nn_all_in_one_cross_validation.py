@@ -1,15 +1,12 @@
-from util import setup_mplt, DATADIR, PLOTDIR
-from nn_0_synthetic_data_gen import build_model_data, generate_combined_data
+from util import setup_mplt, DATADIR
+from nn_0_synthetic_data_gen import build_model_data
 from nn_1_train_model import CoffeeNetBase, train_coffeenet, evaluate_model
 
-from collections import defaultdict
 import tabulate
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import r2_score, mean_absolute_error
-from sklearn.model_selection import KFold
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 from Models import VoltammogramConvNet, VoltammogramLSTMNet
 

@@ -89,7 +89,7 @@ def analyze_best_windows(file_path):
 
 
 if __name__ == "__main__":
-    DATADIR = Path('./data')
+    DATADIR = Path('../data')
     results_file = 'voltage_window_search_results.pkl'
     results_path = DATADIR / results_file
 

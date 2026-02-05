@@ -10,17 +10,17 @@ import glob
 '''
 Important Globals
 '''
-SMOOTHING_WINDOW_SIZE = 25  # Size of the moving average window for smoothing
-MSLOPE_DETECTION_MIN = 0.25  # Minimum voltage for slope detection
-MSLOPE_DETECTION_MAX = 0.31  # Maximum voltage for slope detection
+SMOOTHING_WINDOW_SIZE = 35  # Size of the moving average window for smoothing
+MSLOPE_DETECTION_MIN = 1.4  # Minimum voltage for slope detection
+MSLOPE_DETECTION_MAX = 1.7  # Maximum voltage for slope detection
 OBSERVED_RANGES = [(0.8, 1), (1.5, 1.6)]  # Observed ranges for spline fitting and other fits
 PREDICTION_RANGE = (OBSERVED_RANGES[0][1], OBSERVED_RANGES[1][0])  # Prediction range for the fits
 
 # <<< Specify the folder containing your files >>>
-FOLDER_PATH = "CGA Standards"
+FOLDER_PATH = "Parsed CSV"
 
-# Load all .txt files in folder
-file_paths = sorted(glob.glob(os.path.join(FOLDER_PATH, "*.txt")))
+# Load all .csv files in folder
+file_paths = sorted(glob.glob(os.path.join(FOLDER_PATH, "*.csv")))
 
 # Dynamic color scheme: uses matplotlib colormap, scales with number of files
 cmap = plt.cm.get_cmap("tab10", len(file_paths))  # tab10, Set2, plasma, etc. are good options
@@ -32,8 +32,8 @@ V_responses = []
 
 
 def cga_normalization(df):
-    voltage = df['Applied Voltage'].values
-    response = df['Detected Response'].values
+    voltage = df['Potential (V)'].values
+    response = df['Current (µA)'].values
     # Find the response between 0.9V and 1.1V in the up curve
     up_curve_indices = (voltage >= 0.75) & (voltage <= 1) & (np.diff(voltage, prepend=voltage[0]) > 0)
     response_at_1v = np.mean(response[up_curve_indices])
@@ -41,8 +41,8 @@ def cga_normalization(df):
 
 
 def plot_data(i, file_path, df, norm = False):
-    voltage = df['Applied Voltage'].values
-    response = df['Detected Response'].values
+    voltage = df['Potential (V)'].values
+    response = df['Current (µA)'].values
 
     # Normalize
     if norm and len(V_responses) == len(file_paths):
@@ -92,8 +92,12 @@ def find_lowest_slope(voltage, response, v_min=1.490, v_max=1.500):
 def read_data(file_path):
     try:
         df = pd.read_csv(file_path, delimiter=',', header=None,
-                         names=['Time', 'Applied Voltage', 'Detected Response'])
-        df = df[(df['Applied Voltage'] >= 0.0)]
+                         names=['Potential (V)', 'Current (µA)'])
+
+        df['Potential (V)'] = pd.to_numeric(df['Potential (V)'], errors='coerce')
+        df['Current (µA)'] = pd.to_numeric(df['Current (µA)'], errors='coerce')
+
+        df = df[(df['Potential (V)'] >= 0.0)]
         return df
     except Exception as e:
         print(f"Error reading {file_path}: {e}")
@@ -124,45 +128,11 @@ if __name__ == '__main__':
 
     # (rest of prediction/fit sections unchanged...)
 
-    plt.xlabel('Applied Voltage')
+    plt.xlabel('Potential (V)')
     plt.ylabel('Response uA')
-    plt.title('Cyclic Voltammetry - Coffee')
+    plt.title('Cyclic Voltammetry - Metrohm')
     plt.legend(bbox_to_anchor=(1, 1))
     plt.grid(True)
-    plt.ylim(-20, 100)
-    plt.tight_layout()
-    plt.show()
-
-    # Linear Regression Analysis
-    y_all = np.array([200] * 5 + [500] * 5 + [800] * 5)
-
-    # Ensure rsd matches same order/length as concentrations
-    rsd = np.array(rsd)
-
-    # Perform linear regression
-    slope, intercept = np.polyfit(y_all, rsd, 1)
-    r2 = np.corrcoef(y_all, rsd)[0, 1] ** 2
-
-    # Predicted line for plotting
-    x_fit = np.linspace(min(y_all), max(y_all), 100)
-    y_fit = slope * x_fit + intercept
-
-    # Plot calibration curve
-    plt.figure(figsize=(7, 5))
-    plt.scatter(y_all, rsd, color='blue', label='Measured Points')
-    plt.plot(x_fit, y_fit, color='red', label=f'Linear Fit: y = {slope:.3f}x + {intercept:.2f}')
-    plt.text(
-        0.05, 0.95,
-        f'$R^2$ = {r2:.4f}',
-        transform=plt.gca().transAxes,
-        fontsize=12,
-        verticalalignment='top'
-    )
-
-    plt.xlabel('CGA Concentration (ppm)')
-    plt.ylabel('Detected Response (µA)')
-    plt.title('Calibration Curve for Caffeine Standards')
-    plt.legend()
-    plt.grid(True)
+    plt.ylim(-20, 800)
     plt.tight_layout()
     plt.show()

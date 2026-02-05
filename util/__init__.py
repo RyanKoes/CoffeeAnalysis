@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mplt
 
 DATADIR= Path('./data').resolve()
-PLOTDIR= Path('./plots').resolve()
+PLOTDIR= Path('./normalized_plots').resolve()
 
 def setup_mplt():
     # increase matplotlib font size
