@@ -15,6 +15,7 @@ import torch
 import torch.nn as nn
 
 import os
+import argparse
 
 cache_file = DATADIR / 'raw_data_cache.pkl'
 if cache_file.exists():
@@ -59,6 +60,14 @@ def filter_cv_by_voltage(cv_data, voltage_range, voltages):
 
 
 if __name__ == "__main__":
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Neural network hyperparameter search for coffee analysis')
+    parser.add_argument("--target", type=str, required=False, 
+                        choices=['HPLC_Caff', 'HPLC_CGA', 'TDS', 'all'],
+                        default='all',
+                        help='Target variable to train on (default: all)')
+    args = parser.parse_args()
+    
     if torch.cuda.is_available():
         device = torch.device("cuda")
     else:
@@ -351,7 +360,14 @@ if __name__ == "__main__":
     }
 
     target_configs = {}
-    for target_name in ['HPLC_Caff', 'HPLC_CGA', 'TDS']:
+    
+    # Determine which targets to run
+    if args.target == 'all':
+        target_list = ['HPLC_Caff', 'HPLC_CGA', 'TDS']
+    else:
+        target_list = [args.target]
+    
+    for target_name in target_list:
         experiments = []
         # For each voltage window
         for voltage_window in all_voltage_windows:
