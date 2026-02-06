@@ -505,30 +505,12 @@ if __name__ == "__main__":
                 model = CoffeeNetBase()
                 model.network = experiment['network'](input_size)
 
-                # Train the model
-                model_path = DATADIR / f'{experiment_name}-fold-{fold}.pth'
-                e['model_path'] = model_path
-
-                if model_path.exists():
-                    checkpoint = torch.load(model_path, map_location=device)
-                    model.load_state_dict(checkpoint['model_state_dict'])
-                    model.to(device)
-                else:
-                    model.to(device)
-                    model = train_coffeenet(model,
-                                            X_train_standard, y_train_standard,
-                                            X_test_standard, y_test_standard,
-                                            num_epochs=experiment['num_epochs'])
-
-                    torch.save({
-                        'model_state_dict': model.state_dict(),
-                        'X_mean': X_scaler.mean_.tolist(),
-                        'X_std': X_scaler.scale_.tolist(),
-                        'y_mean': y_scaler.mean_.tolist(),
-                        'y_std': y_scaler.scale_.tolist(),
-                        'input_size': input_size,
-                        'voltage_range': voltage_range
-                    }, model_path)
+                # Train the model (no checkpoint saving)
+                model.to(device)
+                model = train_coffeenet(model,
+                                        X_train_standard, y_train_standard,
+                                        X_test_standard, y_test_standard,
+                                        num_epochs=experiment['num_epochs'])
 
                 # Evaluate on training data
                 train_predictions = evaluate_model(model, X_train_standard, y_train_standard)
