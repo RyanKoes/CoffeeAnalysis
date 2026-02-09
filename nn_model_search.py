@@ -25,38 +25,8 @@ if cache_file.exists():
 from util import read_coffehub
 df = read_coffehub()
 
-# Generate all possible voltage windows with 0.1V increments
-def generate_voltage_windows(min_v=0.0, max_v=2.0, step=0.1):
-    """Generate all possible voltage windows from min_v to max_v with given step."""
-    voltage_points = np.arange(min_v, max_v + step/2, step)  # Include max_v
-    voltage_points = np.round(voltage_points, 1)  # Round to avoid floating point errors
-    
-    windows = []
-    for i in range(len(voltage_points)):
-        for j in range(i + 1, len(voltage_points)):
-            windows.append((voltage_points[i], voltage_points[j]))
-    
-    return windows
-
-# Generate all 210 voltage windows
-all_voltage_windows = generate_voltage_windows()
-
-
-def filter_cv_by_voltage(cv_data, voltage_range, voltages):
-    """
-    Filter CV data to only include measurements within the specified voltage range.
-
-    Args:
-        cv_data: Array of CV measurements
-        voltage_range: Tuple of (min_voltage, max_voltage)
-        voltages: Array of voltage values corresponding to cv_data
-
-    Returns:
-        Filtered CV data array
-    """
-    min_v, max_v = voltage_range
-    mask = (voltages >= min_v) & (voltages <= max_v)
-    return cv_data[mask]
+# Use full voltage window for all experiments
+FULL_VOLTAGE_WINDOW = (0.0, 2.0)
 
 
 if __name__ == "__main__":
@@ -369,14 +339,11 @@ if __name__ == "__main__":
     
     for target_name in target_list:
         experiments = []
-        # For each voltage window
-        for voltage_window in all_voltage_windows:
-            # For each architecture
-            for arch in get_network_architectures():
-                exp = base_config.copy()
-                exp.update(arch)
-                exp['voltage_range'] = voltage_window  # Add voltage window to config
-                experiments.append(exp)
+        # For each architecture
+        for arch in get_network_architectures():
+            exp = base_config.copy()
+            exp.update(arch)
+            experiments.append(exp)
         target_configs[target_name] = experiments
 
     exp_results = []
@@ -385,10 +352,6 @@ if __name__ == "__main__":
     for target_name, experiments in target_configs.items():
 
         for experiment in tqdm(experiments, desc=f"{target_name} experiments"):
-            # Get voltage range for this experiment
-            voltage_range = experiment['voltage_range']
-            v_min, v_max = voltage_range
-            
             experiment_name = f'SingleTarget-{target_name}-'
 
             if experiment.get('bins') == True:
@@ -402,8 +365,8 @@ if __name__ == "__main__":
                 else:
                     experiment_name += "NONOISE-"
 
-            # Add voltage window to experiment name
-            experiment_name += f"{experiment['network_name']}-V{v_min:.1f}-{v_max:.1f}-{experiment['num_epochs']}"
+            # Add architecture and epochs to experiment name
+            experiment_name += f"{experiment['network_name']}-{experiment['num_epochs']}"
 
             all_data_path = DATADIR / f'{experiment_name}_all.pkl'
 
@@ -415,16 +378,6 @@ if __name__ == "__main__":
                 df_all.to_pickle(all_data_path)
 
             coffees = df_all['Coffee Name'].unique()
-
-            # Get voltage array (assuming it's stored in the dataframe or can be accessed)
-            # This assumes the voltage values are available - adjust based on your data structure
-            # You may need to get this from build_model_data or store it separately
-            if 'voltages' in df_all.columns:
-                voltages = df_all['voltages'].iloc[0]
-            else:
-                # If voltages aren't stored, you'll need to reconstruct them
-                # This is a placeholder - adjust based on your actual voltage array
-                voltages = None
 
             # Leave-one-coffee-out cross-validation
             for fold, test_coffee in enumerate(coffees):
@@ -439,24 +392,12 @@ if __name__ == "__main__":
                     'all_data_path': all_data_path,
                     'experiment_name': experiment_name,
                     'target': target_name,
-                    'voltage_range': voltage_range,
-                    'v_min': v_min,
-                    'v_max': v_max,
                     'network_name': experiment['network_name']
                 }
 
-                # Setup train data with voltage filtering
+                # Setup train data (use full window)
                 cv_raw_list = df_train['cv_raw'].to_list()
-
-                # Filter CV data by voltage range for this experiment
-                if voltages is not None:
-                    X_train_filtered = []
-                    for cv_data in cv_raw_list:
-                        filtered_cv = filter_cv_by_voltage(cv_data, voltage_range, voltages)
-                        X_train_filtered.append(filtered_cv)
-                    X_train = np.array(X_train_filtered)
-                else:
-                    X_train = np.array(cv_raw_list)
+                X_train = np.array(cv_raw_list)
 
                 y_train = np.array(df_train[target_name].values).reshape(-1, 1)  # Single target
 
@@ -484,18 +425,9 @@ if __name__ == "__main__":
                 X_train_standard = X_scaler.transform(X_train)
                 y_train_standard = y_scaler.transform(y_train)
 
-                # Setup test data with voltage filtering
+                # Setup test data (use full window)
                 cv_raw_test_list = df_test['cv_raw'].to_list()
-
-                # Filter CV data by voltage range for this experiment
-                if voltages is not None:
-                    X_test_filtered = []
-                    for cv_data in cv_raw_test_list:
-                        filtered_cv = filter_cv_by_voltage(cv_data, voltage_range, voltages)
-                        X_test_filtered.append(filtered_cv)
-                    X_test = np.array(X_test_filtered)
-                else:
-                    X_test = np.array(cv_raw_test_list)
+                X_test = np.array(cv_raw_test_list)
 
                 y_test = np.array(df_test[target_name].values).reshape(-1, 1)  # Single target
 
@@ -561,7 +493,7 @@ if __name__ == "__main__":
     summary_data = []
     for target_name in target_configs.keys():
         df_target = df_results[df_results['target'] == target_name]
-        df_avg = df_target.groupby(['experiment_name', 'v_min', 'v_max', 'network_name']).agg({
+        df_avg = df_target.groupby(['experiment_name', 'network_name']).agg({
             f'test_{target_name}_r2': 'mean',
             f'test_{target_name}_mae': 'mean'
         }).reset_index()
@@ -571,10 +503,15 @@ if __name__ == "__main__":
         
         summary_data.append({
             'Target': target_name,
-            'Voltage Range': f"{best_row['v_min']:.1f}-{best_row['v_max']:.1f}V",
             'Best Architecture': best_row['network_name'],
             'Test R²': best_row[f'test_{target_name}_r2'],
             'Test MAE': best_row[f'test_{target_name}_mae']
         })
 
     df_summary = pd.DataFrame(summary_data)
+    
+    # Save summary
+    summary_path = DATADIR / 'architecture_search_summary.csv'
+    df_summary.to_csv(summary_path, index=False)
+    print(f"\nSummary saved to {summary_path}")
+    print(df_summary)
