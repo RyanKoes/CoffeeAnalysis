@@ -42,9 +42,9 @@ BASELINE_REF_VOLTAGE = 0.8
 
 # Search Ranges
 search_ranges = {
-    'HPLC_CGA': (0.2, 0.8),
-    'HPLC_Caff': (1.1, 1.5),
-    'TDS': (0.6, 1.0)
+    'HPLC_CGA': (0.0, 2.0),
+    'HPLC_Caff': (0.0, 2.0),
+    'TDS': (0.0, 2.0)
 }
 
 def get_voltage_index(voltages, target_v):
@@ -174,7 +174,8 @@ if __name__ == "__main__":
     if 'voltages' in df_all.columns:
         voltages = df_all['voltages'].iloc[0]
     else:
-        voltages = np.linspace(-0.5, 1.5, len(df_all['cv_raw'].iloc[0]))
+        # Fallback: assume CV runs from 0 to 2 V
+        voltages = np.linspace(0.0, 2.0, len(df_all['cv_raw'].iloc[0]))
 
     print(f"Voltage resolution: {(voltages[1] - voltages[0]):.4f} V")
 
@@ -227,52 +228,129 @@ if __name__ == "__main__":
     print(f"\n{'=' * 80}")
     print("Creating visualizations for best models...")
 
-    # --- Visualization: uA response vs. actual value ---
+    # --- Visualization: uA response vs. actual value (TEST ONLY, with fit line) ---
 
-    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     title_suffix = f"(Baseline Corrected @ {BASELINE_REF_VOLTAGE}V)" if BASELINE_CORRECTION else "(Raw Data)"
-    fig.suptitle(f'uA Response vs. Actual Value {title_suffix}', fontsize=16, fontweight='bold')
+    fig.suptitle(f'uA Response vs. Actual Value {title_suffix}', fontsize=14, fontweight='bold')
 
     for idx, (target_name, data) in enumerate(best_models.items()):
         results = data['results']
         v_point = data['voltage']
 
-        # Get voltage index for best voltage
-        v_idx = get_voltage_index(voltages, v_point)
-
-        # Training set: mask and extract
-        train_mask = ~df_all['Coffee Name'].isin(results['test_coffees'])
-        X_train_uA = np.array([cv[v_idx] if hasattr(cv, '__getitem__') else np.array(cv)[v_idx] for cv in
-                               df_all.loc[train_mask, 'cv_raw']])
-        y_train = df_all.loc[train_mask, target_name].values
-
         # Test set: mask and extract
         test_mask = df_all['Coffee Name'].isin(results['test_coffees'])
-        X_test_uA = np.array([cv[v_idx] if hasattr(cv, '__getitem__') else np.array(cv)[v_idx] for cv in
-                              df_all.loc[test_mask, 'cv_raw']])
+        X_test_uA = np.array([
+            get_voltage_response(cv, v_point, voltages)
+            for cv in df_all.loc[test_mask, 'cv_raw']
+        ])
         y_test = df_all.loc[test_mask, target_name].values
 
-        # Training Plot (Top Row)
-        ax_train = axes[0, idx]
-        ax_train.scatter(X_train_uA, y_train, alpha=0.6, color='blue', edgecolors='k', s=40)
-        ax_train.set_xlabel(f'uA Response @ {v_point:.2f}V')
-        ax_train.set_ylabel('Actual Value')
-        ax_train.set_title(f'{target_names_display[target_name]} (Train)\nBest V: {v_point:.2f}V')
-        ax_train.grid(True, alpha=0.3)
+        test_r2 = results['overall_metrics']['test_r2']
 
-        # Test Plot (Bottom Row)
-        ax_test = axes[1, idx]
-        ax_test.scatter(X_test_uA, y_test, alpha=0.6, color='orange', edgecolors='k', s=40)
+        ax_test = axes[idx]
+
+        # Scatter of test points
+        ax_test.scatter(X_test_uA, y_test, alpha=0.7, color='orange', edgecolors='k', s=30, label='Test data')
+
+        # Fit regression line on test data for visualization
+        if X_test_uA.size > 1:
+            X_line = X_test_uA.reshape(-1, 1)
+            reg = LinearRegression().fit(X_line, y_test)
+            x_min, x_max = X_test_uA.min(), X_test_uA.max()
+            x_fit = np.linspace(x_min, x_max, 100)
+            y_fit = reg.predict(x_fit.reshape(-1, 1))
+            ax_test.plot(x_fit, y_fit, color='red', linestyle='--', linewidth=2, label='Fit line')
+
         ax_test.set_xlabel(f'uA Response @ {v_point:.2f}V')
         ax_test.set_ylabel('Actual Value')
-        ax_test.set_title(f'{target_names_display[target_name]} (Test LOOCV)')
+        ax_test.set_title(
+            f"{target_names_display[target_name]} Test LOOCV\n"
+            f"Best V: {v_point:.2f}V, R² = {test_r2:.3f}"
+        )
         ax_test.grid(True, alpha=0.3)
+        # Make each subplot visually square
+        try:
+            ax_test.set_box_aspect(1)
+        except AttributeError:
+            pass
 
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        ax_test.legend(fontsize=8)
+
+    plt.tight_layout(rect=[0, 0.08, 1, 0.9])
     filename_suffix = "_baseline_corrected" if BASELINE_CORRECTION else "_raw"
     save_path = PLOTDIR / f'regression_uA_vs_actual{filename_suffix}.png'
     plt.savefig(save_path, dpi=300)
     print(f"uA vs. Actual plot saved to {save_path}")
+    plt.show()
+
+    # --- Visualization: All voltammograms with best-voltage markers ---
+
+    print("\nCreating voltammogram plot with best-voltage markers for CGA, Caffeine, and TDS...")
+
+    fig2, ax2 = plt.subplots(figsize=(12, 8))
+
+    # Select lowest 5 and highest 5 caffeine samples
+    df_sorted_caff = df_all.sort_values('HPLC_Caff')
+    df_subset = pd.concat([df_sorted_caff.head(5), df_sorted_caff.tail(5)])
+
+    # Plot each selected sample's voltammogram
+    for _, row in df_subset.iterrows():
+        cv_curve = row['cv_raw']
+        if hasattr(cv_curve, 'values'):
+            cv_vals = cv_curve.values
+        else:
+            cv_vals = np.array(cv_curve)
+
+        ax2.plot(voltages, cv_vals, color='lightgray', alpha=0.4, linewidth=0.8)
+
+        # Overlay marker only for Caffeine's best voltage with response & caffeine labels
+        best_v = best_models['HPLC_Caff']['voltage']
+        idx = get_voltage_index(voltages, best_v)
+        x = voltages[idx]
+        y = cv_vals[idx]
+
+        caff_val = row['HPLC_Caff']
+        response_val = y
+
+        ax2.scatter(x, y, color='tab:red', marker='s', s=15, alpha=0.9)
+        ax2.text(
+            x,
+            y,
+            f"resp {response_val:.3f}, Caff {caff_val:.1f}",
+            fontsize=3,
+            color='tab:red',
+            ha='left',
+            va='bottom',
+        )
+
+    ax2.set_xlabel('Voltage (V)')
+    ax2.set_ylabel('Current (uA)')
+    title2 = 'Coffee Voltammograms with Best-Voltage Markers'
+    if BASELINE_CORRECTION:
+        title2 += f" (Baseline @ {BASELINE_REF_VOLTAGE} V)"
+    ax2.set_title(title2)
+    ax2.grid(True, alpha=0.3)
+
+    # Zoom into the region of interest
+    ax2.set_xlim(1.0, 1.5)
+
+    # Legend using proxy artists
+    from matplotlib.lines import Line2D
+
+    legend_elements = [
+         Line2D([0], [0], marker='s', color='w', label='Caffeine best V',
+             markerfacecolor='tab:red', markersize=6),
+        ]
+    ax2.legend(handles=legend_elements, loc='best', fontsize=8)
+
+    volt_plot_name = 'voltammograms_best_voltage_markers'
+    if BASELINE_CORRECTION:
+        volt_plot_name += '_baseline_corrected'
+    volt_save_path = PLOTDIR / f'{volt_plot_name}.png'
+    plt.tight_layout()
+    plt.savefig(volt_save_path, dpi=300)
+    print(f"Voltammogram plot with best-voltage markers saved to {volt_save_path}")
     plt.show()
 
     # 4. Final Summary Table
