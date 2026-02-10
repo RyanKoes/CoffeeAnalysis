@@ -1,0 +1,2 @@
+Target,Best Architecture,Test R²,Test MAE
+HPLC_CGA,Bottleneck-512-64-1,0.0,79.09524580736738
