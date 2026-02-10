@@ -481,12 +481,15 @@ if __name__ == "__main__":
             lambda x: np.mean(x) if isinstance(x, np.ndarray) else np.nan
         )
 
-    # Save results
-    results_path = DATADIR / 'full_window_search_results.pkl'
+    # Save results with a target-specific suffix so multiple runs
+    # (e.g., HPLC_Caff, HPLC_CGA, TDS) do not overwrite each other.
+    suffix = args.target if args.target != 'all' else 'all_targets'
+
+    results_path = DATADIR / f'full_window_search_results_{suffix}.pkl'
     df_results.to_pickle(results_path)
-    
+
     # Also save as CSV for easier inspection
-    csv_path = DATADIR / 'full_window_search_results.csv'
+    csv_path = DATADIR / f'full_window_search_results_{suffix}.csv'
     df_results.to_csv(csv_path, index=False)
 
     # Create summary comparison across all targets
@@ -511,7 +514,7 @@ if __name__ == "__main__":
     df_summary = pd.DataFrame(summary_data)
     
     # Save summary
-    summary_path = DATADIR / 'architecture_search_summary.csv'
+    summary_path = DATADIR / f'architecture_search_summary_{suffix}.csv'
     df_summary.to_csv(summary_path, index=False)
     print(f"\nSummary saved to {summary_path}")
     print(df_summary)
