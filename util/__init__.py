@@ -28,7 +28,11 @@ def setup_mplt():
 
 
 @cache
-def read_coffehub(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA', use_cache=True):
+def read_coffehub(
+    sheet_id='1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA',
+    use_cache=True,
+    require_columns=None,
+):
     """ Returns:
                                                     Name Brew date  HPLC_Caff  HPLC_CGA     cv_data1    cv_data 2        cv_data 3
     0                           Alabaster Colombian Decaf   5/17/25       52.0     920.0  aladec1.txt  aladec2.txt  aladec3edge.txt
@@ -64,10 +68,48 @@ def read_coffehub(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA', use
     # Construct the URL to export the *first* sheet as CSV.
     url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv'
 
-    if (DATADIR / 'raw_data_cache.pkl').exists() and use_cache:
+    cache_path = DATADIR / 'raw_data_cache.pkl'
+    attribute_cols = [
+        'Brightness',
+        'Flavor',
+        'Body',
+        'Finish',
+        'Sweetness',
+        'Clean Cup',
+        'Complexity',
+        'Uniformity',
+        'Fragrance',
+        'Wet Aroma',
+    ]
+
+    # Optional per-flavor descriptor columns (0–5 scale) used by
+    # nn_flavors_model_window_search.py. We keep them when present.
+    flavor_cols = [
+        'Spice',
+        'Body',
+        'Floral',
+        'Honey',
+        'Sugars',
+        'Caramel',
+        'Fruits',
+        'Citrus',
+        'Berry',
+        'Cocoa',
+        'Nuts',
+        'Rustic',
+    ]
+
+    if cache_path.exists() and use_cache:
         # load from cache
-        df = pd.read_pickle(DATADIR / 'raw_data_cache.pkl')
-        return df
+        df_cached = pd.read_pickle(cache_path)
+        # If cache already contains required columns, use it.
+        required_cols = list(attribute_cols)
+        if require_columns:
+            required_cols.extend(list(require_columns))
+
+        if all(c in df_cached.columns for c in required_cols):
+            return df_cached
+        # Otherwise, fall through to refresh from Google Sheets.
 
     #raise("Not using cache!")
 
@@ -75,6 +117,13 @@ def read_coffehub(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA', use
     print(f"URL: {url}")
 
     df = pd.read_csv(url)
+
+    # Normalize header whitespace from Google Sheets exports
+    df.columns = [str(c).strip() for c in df.columns]
+
+    # Stripping can create duplicate column names (e.g., 'Body ' and 'Body').
+    # Keep the first occurrence to ensure downstream indexing returns scalars.
+    df = df.loc[:, ~df.columns.duplicated()]
 
 
     # COLUMNS
@@ -90,26 +139,68 @@ def read_coffehub(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA', use
     # print (df)
     # print (df.columns)
     #exit()
-    # keep columns
-    df = df[['Name ', 'Brew date ',
-                'Reffractometer TDS 1', 'TDS 2', 'TDS 3',
-                'HPLC Caffeine ppm 1', 'Caffeine ppm 2',
-                'CGA ppm (799/1/200 eluent new)',
-                'Voltammetry data 1', 'data 2', 'data 3']]
+    # Keep core measurement columns and, when present, cupping attribute + flavor columns.
+    base_cols = [
+        'Name',
+        'Brew date',
+        'Roast',
+        'Reffractometer TDS 1',
+        'TDS 2',
+        'TDS 3',
+        'HPLC Caffeine ppm 1',
+        'Caffeine ppm 2',
+        'CGA ppm (799/1/200 eluent new)',
+        'Voltammetry data 1',
+        'data 2',
+        'data 3',
+    ]
 
-    # rename columns
-    df.columns = ['Name', 'Brew date',
-                    'TDS_1', 'TDS_2', 'TDS_3',
-                    'HPLC_Caff_1', 'HPLC_Caff_2',
-                    'HPLC_CGA',
-                    'cv_data1', 'cv_data2', 'cv_data3']
+    # Build keep_cols without duplicates while preserving order.
+    keep_cols_raw = [c for c in (base_cols + attribute_cols + flavor_cols) if c in df.columns]
+    keep_cols = []
+    seen = set()
+    for c in keep_cols_raw:
+        if c in seen:
+            continue
+        keep_cols.append(c)
+        seen.add(c)
+    df = df[keep_cols]
+
+    # rename columns to canonical internal names
+    rename_map = {
+        'Reffractometer TDS 1': 'TDS_1',
+        'TDS 2': 'TDS_2',
+        'TDS 3': 'TDS_3',
+        'HPLC Caffeine ppm 1': 'HPLC_Caff_1',
+        'Caffeine ppm 2': 'HPLC_Caff_2',
+        'CGA ppm (799/1/200 eluent new)': 'HPLC_CGA',
+        'Voltammetry data 1': 'cv_data1',
+        'data 2': 'cv_data2',
+        'data 3': 'cv_data3',
+    }
+    df = df.rename(columns=rename_map)
 
 
     #print(df [df['Name'] == 'FRC Swiss Water Decaf Colombian, med roast IH'])
     #exit()
 
-    # drop NA rows
-    df = df.dropna()
+    # Drop NA rows required for modeling (do not require attribute columns)
+    required = [
+        'Name',
+        'Brew date',
+        'Roast',
+        'TDS_1',
+        'TDS_2',
+        'TDS_3',
+        'HPLC_Caff_1',
+        'HPLC_Caff_2',
+        'HPLC_CGA',
+        'cv_data1',
+        'cv_data2',
+        'cv_data3',
+    ]
+    required = [c for c in required if c in df.columns]
+    df = df.dropna(subset=required)
 
 
     df['HPLC_Caff'] = df[['HPLC_Caff_1', 'HPLC_Caff_2']].mean(axis=1)
@@ -121,7 +212,7 @@ def read_coffehub(sheet_id = '1Pa8iQ0_WjuVjassjfxEF_wE13O-19WQbBGbVffETHRA', use
     df['TDS'] = df[['TDS_1', 'TDS_2', 'TDS_3']].mean(axis=1)
 
     if use_cache:
-        df.to_pickle(DATADIR / 'raw_data_cache.pkl')
+        df.to_pickle(cache_path)
 
     return df
 

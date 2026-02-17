@@ -12,6 +12,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_absolute_error
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import copy
 
 from util import setup_mplt, DATADIR, PLOTDIR
 
@@ -193,7 +194,12 @@ def train_coffeenet(model, X, y, X_test = None, y_test = None, num_epochs=100):
     criterion = nn.HuberLoss(delta=1.0)
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-
+    # Early stopping setup (per fold if X_test/y_test provided)
+    best_val_loss = float('inf')
+    best_state_dict = None
+    # Patience scales mildly with training length
+    patience = max(20, num_epochs // 10)
+    epochs_no_improve = 0
 
     # Training loop
     for epoch in range(num_epochs):
@@ -207,6 +213,33 @@ def train_coffeenet(model, X, y, X_test = None, y_test = None, num_epochs=100):
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
+
+        # Validation / early stopping if test data provided
+        if test_loader is not None:
+            model.eval()
+            val_loss = 0.0
+            with torch.no_grad():
+                for batch_X, batch_y in test_loader:
+                    batch_X, batch_y = batch_X.to(device), batch_y.to(device)
+                    outputs = model(batch_X)
+                    loss = criterion(outputs, batch_y)
+                    val_loss += loss.item()
+
+            val_loss /= len(test_loader)
+
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_state_dict = copy.deepcopy(model.state_dict())
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
+
+            if epochs_no_improve >= patience:
+                break
+
+    # Restore best weights if early stopping was used
+    if best_state_dict is not None:
+        model.load_state_dict(best_state_dict)
 
     return model
 
