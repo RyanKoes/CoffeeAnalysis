@@ -326,14 +326,6 @@ If you plan to release data, consider:
 - Including **anonymized metadata** (e.g., origin region instead of specific farm).  
 - Sharing **standard curves and example voltammograms** for CGA and caffeine standards, which are useful for benchmarking without exposing proprietary coffee sources.
 
-## Citing
-
-If you use this code or ideas from this project, please cite the associated thesis:
-
-> Ryan Koes, **“Deep Learning Approaches for Voltammetric Analysis of Coffee,”** Bachelor of Science with Honors in Computer Science, Bucknell University, May 4, 2026. [file](file:///Users/ryankoes/Downloads/Honors_Thesis__Coffee_2025_%20(14).pdf)
-
-You may also cite related electrochemical and coffee‑analysis works referenced in the thesis for broader context.
-
 ## Acknowledgments
 
 This project was advised by **Dr. Katsuyuki Wakabayashi**, with additional guidance from **Dr. Alan Marchiori** and **Dr. Brian King** in the Bucknell University Department of Computer Science. Laboratory support, HPLC access, and electrochemical instrumentation were provided by the Bucknell **Chemical Engineering** and **Environmental Engineering** departments, and coffee samples were generously supplied by **Fresh Roasted Coffee**, **Sweet Maria’s**, and **Alabaster Coffee**. [file](file:///Users/ryankoes/Downloads/Honors_Thesis__Coffee_2025_%20(14).pdf)
