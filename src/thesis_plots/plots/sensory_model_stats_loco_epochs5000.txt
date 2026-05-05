@@ -1,0 +1,83 @@
+mode: loco
+epochs: 5000
+voltage_mode: saved_window
+dropout_p_override: 0.5
+n_models: 7
+
+Brightness
+  pkl: BEST_Attribute_Brightness_fixed.pkl
+  target_display: Attribute_Brightness
+  architecture: Tiny-32-1 (attribute)
+  window: (np.float64(0.0), np.float64(1.4))
+  saved_search_cv_mean_r2: 0.289120
+  n_samples: 45
+  r2: 0.199699
+  mae: 0.374002
+  plot_pdf: scatter_Attribute_Brightness.pdf
+
+Clean Cup
+  pkl: BEST_Attribute_Clean_Cup_fixed.pkl
+  target_display: Attribute_Clean Cup
+  architecture: SmallBN-64-32-1 (attribute)
+  window: (np.float64(0.0), np.float64(2.0))
+  saved_search_cv_mean_r2: 0.118252
+  n_samples: 45
+  r2: -0.010484
+  mae: 0.512095
+  plot_pdf: scatter_Attribute_Clean_Cup.pdf
+
+Finish
+  pkl: BEST_Attribute_Finish_fixed.pkl
+  target_display: Attribute_Finish
+  architecture: Tiny-16-1-Tanh (attribute)
+  window: (np.float64(0.0), np.float64(1.8))
+  saved_search_cv_mean_r2: 0.314701
+  n_samples: 45
+  r2: 0.243314
+  mae: 0.351830
+  plot_pdf: scatter_Attribute_Finish.pdf
+
+Uniformity
+  pkl: BEST_Attribute_Uniformity_fixed.pkl
+  target_display: Attribute_Uniformity
+  architecture: SmallDrop-128-32-1 (attribute)
+  window: (np.float64(0.0), np.float64(1.8))
+  saved_search_cv_mean_r2: 0.026821
+  n_samples: 45
+  r2: -0.156232
+  mae: 0.446371
+  plot_pdf: scatter_Attribute_Uniformity.pdf
+
+Caramel
+  pkl: BEST_Flavor_Caramel_fixed.pkl
+  target_display: Flavor_Caramel
+  architecture: SmallBN-64-1 (flavor)
+  window: (np.float64(1.8), np.float64(2.0))
+  saved_search_cv_mean_r2: -0.042829
+  n_samples: 45
+  r2: -0.120723
+  mae: 1.304517
+  plot_pdf: scatter_Flavor_Caramel.pdf
+
+Citrus
+  pkl: BEST_Flavor_Citrus_fixed.pkl
+  target_display: Flavor_Citrus
+  architecture: Tiny-16-1-Tanh (flavor)
+  window: (np.float64(0.2), np.float64(1.8))
+  saved_search_cv_mean_r2: 0.320980
+  n_samples: 45
+  r2: 0.282784
+  mae: 0.986811
+  plot_pdf: scatter_Flavor_Citrus.pdf
+
+Rustic
+  pkl: BEST_Flavor_Rustic_fixed.pkl
+  target_display: Flavor_Rustic
+  architecture: Tiny-32-1 (flavor)
+  window: (np.float64(0.0), np.float64(0.4))
+  saved_search_cv_mean_r2: 0.151815
+  n_samples: 45
+  r2: 0.035780
+  mae: 1.377528
+  plot_pdf: scatter_Flavor_Rustic.pdf
+

@@ -6,9 +6,22 @@ from scipy.integrate import simpson
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mplt
+import ssl
 
-DATADIR= Path('./data').resolve()
-PLOTDIR= Path('./normalized_plots').resolve()
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+
+# Resolve project paths relative to this package, so scripts work
+# regardless of the current working directory.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATADIR = PROJECT_ROOT / 'data'
+PLOTDIR = PROJECT_ROOT / 'normalized_plots'
+VOLTAMMETRY_DIR = PROJECT_ROOT / 'voltammetry-files'
+EXTRA_VOLTAMMETRY_DIR = PROJECT_ROOT / 'extra-voltammetry-files'
 
 def setup_mplt():
     # increase matplotlib font size
@@ -101,14 +114,25 @@ def read_coffehub(
 
     if cache_path.exists() and use_cache:
         # load from cache
-        df_cached = pd.read_pickle(cache_path)
-        # If cache already contains required columns, use it.
-        required_cols = list(attribute_cols)
-        if require_columns:
-            required_cols.extend(list(require_columns))
+        try:
+            df_cached = pd.read_pickle(cache_path)
+            # If cache already contains required columns, use it.
+            # We relax the check for attribute_cols to allow using caches that might miss them
+            # (like the 44-coffee dataset from Regression Modeling)
+            required_cols = [] 
+            if require_columns:
+                required_cols.extend(list(require_columns))
 
-        if all(c in df_cached.columns for c in required_cols):
-            return df_cached
+            print(f"DEBUG: Checking cache. required: {required_cols}")
+            
+            missing_cols = [c for c in required_cols if c not in df_cached.columns]
+            if not missing_cols:
+                print("DEBUG: Using cache.")
+                return df_cached
+            else:
+                print(f"DEBUG: Cache missing columns: {missing_cols}")
+        except Exception as e:
+            print(f"DEBUG: Failed to read cache: {e}")
         # Otherwise, fall through to refresh from Google Sheets.
 
     #raise("Not using cache!")
@@ -124,7 +148,6 @@ def read_coffehub(
     # Stripping can create duplicate column names (e.g., 'Body ' and 'Body').
     # Keep the first occurrence to ensure downstream indexing returns scalars.
     df = df.loc[:, ~df.columns.duplicated()]
-
 
     # COLUMNS
     # Index(['ID #', 'Name ', 'Brand ', 'Type ', 'Roast ', 'Roa date ', 'Brew date ',
@@ -185,23 +208,18 @@ def read_coffehub(
     #exit()
 
     # Drop NA rows required for modeling (do not require attribute columns)
+    # Modified to only require the first replicate, allowing for partial data
     required = [
         'Name',
         'Brew date',
-        'Roast',
-        'TDS_1',
-        'TDS_2',
-        'TDS_3',
-        'HPLC_Caff_1',
-        'HPLC_Caff_2',
-        'HPLC_CGA',
+        #'Roast',
+        #'TDS_1',
+        #'HPLC_Caff_1',
+        #'HPLC_CGA',
         'cv_data1',
-        'cv_data2',
-        'cv_data3',
     ]
     required = [c for c in required if c in df.columns]
     df = df.dropna(subset=required)
-
 
     df['HPLC_Caff'] = df[['HPLC_Caff_1', 'HPLC_Caff_2']].mean(axis=1)
     df['HPLC_Caff_3'] = df['HPLC_Caff']
@@ -217,12 +235,14 @@ def read_coffehub(
     return df
 
 @cache
-def read_cv_data(filename, normalize = None, datadir = Path('voltammetry-files')):
+def read_cv_data(filename, normalize = None, datadir = None):
     """ Reads a CV data file and returns a DataFrame with the data.
     """
 
     if normalize is None:
         raise ValueError("normalize must be True or False")
+    if datadir is None:
+        datadir = VOLTAMMETRY_DIR
     df = pd.read_csv(datadir / filename, sep=',', header=None, names=['t', 'v', 'i'], index_col='t')
 
 
@@ -266,7 +286,7 @@ def read_cv_data(filename, normalize = None, datadir = Path('voltammetry-files')
 @cache
 def read_cv_data_bins(filename, normalize = None,
                       redox = False,
-                      datadir = Path('voltammetry-files'),
+                      datadir = None,
                       num_bins=16):
     """ Reads a CV data file and returns a DataFrame with the data.
     
@@ -275,6 +295,8 @@ def read_cv_data_bins(filename, normalize = None,
 
     if normalize is None:
         raise ValueError("normalize must be True or False")
+    if datadir is None:
+        datadir = VOLTAMMETRY_DIR
     df = pd.read_csv(datadir / filename, sep=',', header=None, names=['t', 'v', 'i'], index_col='t')
 
     # 45 seconds are preconditioning

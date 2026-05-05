@@ -291,7 +291,6 @@ def find_peak_response(voltage, response):
     filtered_voltage = voltage[x_start:x_end]
     filtered_difference = difference[x_start:x_end]
 
->>>>>>> origin/marchiori-friday-edits
 
     if len(filtered_difference) > 0:
         # Find the index of maximum absolute difference

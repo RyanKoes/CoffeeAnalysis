@@ -1,3 +1,12 @@
+
+# --- repo-root bootstrap (added by reorg) ---
+import sys as _sys
+from pathlib import Path as _Path
+_repo_root = _Path(__file__).resolve().parents[2]
+if str(_repo_root) not in _sys.path:
+    _sys.path.insert(0, str(_repo_root))
+# --- end bootstrap ---
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mplt
@@ -156,23 +165,27 @@ FRC Brazil Cerrado, medium roast IH- High BR, 2x dilute""".split('\n')
                 attrs[col] = _parse_optional_float(row.get(col))
 
         for k in range(1, 4):
-            bins, raw = read_cv_data_bins(row[f'cv_data{k}'],
-                                                 redox= REDOX,
-                                                 normalize=NORMALIZE,
-                                                 num_bins=BINS)
-            results.append(
-                {
-                    'Sample Name': f"{row['Name']} ({k})",
-                    'Coffee Name': row['Name'],
-                    'Roast': roast_level,
-                    'HPLC_Caff': row[f'HPLC_Caff_{k}'],
-                    'HPLC_CGA': row[f'HPLC_CGA_{k}'],
-                    'TDS': row[f'TDS_{k}'],
-                    'cv_bins': bins,
-                    'cv_raw': raw,
-                    **attrs,
-                }
-            )
+            try:
+                bins, raw = read_cv_data_bins(row[f'cv_data{k}'],
+                                                     redox= REDOX,
+                                                     normalize=NORMALIZE,
+                                                     num_bins=BINS)
+                results.append(
+                    {
+                        'Sample Name': f"{row['Name']} ({k})",
+                        'Coffee Name': row['Name'],
+                        'Roast': roast_level,
+                        'HPLC_Caff': row[f'HPLC_Caff_{k}'],
+                        'HPLC_CGA': row[f'HPLC_CGA_{k}'],
+                        'TDS': row[f'TDS_{k}'],
+                        'cv_bins': bins,
+                        'cv_raw': raw,
+                        **attrs,
+                    }
+                )
+            except Exception as e:
+                pass
+                #print(f"Skipping {row['Name']} ({k}) due to error processing {row.get(f'cv_data{k}')}: {e}")
 
     df = pd.DataFrame(results)
 

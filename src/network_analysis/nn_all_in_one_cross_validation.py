@@ -1,3 +1,12 @@
+
+# --- repo-root bootstrap (added by reorg) ---
+import sys as _sys
+from pathlib import Path as _Path
+_repo_root = _Path(__file__).resolve().parents[2]
+if str(_repo_root) not in _sys.path:
+    _sys.path.insert(0, str(_repo_root))
+# --- end bootstrap ---
+
 from util import setup_mplt, DATADIR
 from nn_0_synthetic_data_gen import build_model_data
 from nn_1_train_model import CoffeeNetBase, train_coffeenet, evaluate_model

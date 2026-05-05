@@ -1,3 +1,12 @@
+
+# --- repo-root bootstrap (added by reorg) ---
+import sys as _sys
+from pathlib import Path as _Path
+_repo_root = _Path(__file__).resolve().parents[2]
+if str(_repo_root) not in _sys.path:
+    _sys.path.insert(0, str(_repo_root))
+# --- end bootstrap ---
+
 from util import setup_mplt, DATADIR, PLOTDIR
 from nn_0_synthetic_data_gen import build_model_data, generate_combined_data
 from nn_1_train_model import CoffeeNetBase, train_coffeenet, evaluate_model
@@ -111,7 +120,7 @@ if __name__ == "__main__":
                     nn.Linear(16, 1)
                 ),
                 'network_name': 'Minimal-16-1'
-            }
+            },
             {
                 'network': lambda input_size: nn.Sequential(
                     nn.Linear(input_size, 128),

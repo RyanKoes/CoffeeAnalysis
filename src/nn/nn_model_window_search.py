@@ -1,3 +1,12 @@
+
+# --- repo-root bootstrap (added by reorg) ---
+import sys as _sys
+from pathlib import Path as _Path
+_repo_root = _Path(__file__).resolve().parents[2]
+if str(_repo_root) not in _sys.path:
+    _sys.path.insert(0, str(_repo_root))
+# --- end bootstrap ---
+
 from util import DATADIR, PLOTDIR, read_coffehub
 from nn_0_synthetic_data_gen import build_model_data
 from nn_1_train_model import CoffeeNetBase, train_coffeenet, evaluate_model
@@ -384,6 +393,7 @@ if __name__ == "__main__":
     full_voltage_array = np.linspace(0.0, 2.0, n_points)
 
     coffees = df_all['Coffee Name'].unique()
+    print(f"Number of coffees (LOCO folds): {len(coffees)}")
     windows = generate_voltage_windows()
     architectures = get_network_architectures()
 
@@ -486,13 +496,15 @@ if __name__ == "__main__":
                 best_model_state = model.state_dict()
                 best_metadata = {
                     'target': target_name,
-                    'window': (vmin, vmax),
+                    # Cast to Python floats so torch.load(weights_only=True) stays happy
+                    # on newer PyTorch versions.
+                    'window': (float(vmin), float(vmax)),
                     'architecture': arch['network_name'],
-                    'r2': cv_r2
+                    'r2': float(cv_r2)
                 }
                 # Capture the exact CV test points that produced best_score
-                best_test_actual = list(all_test_actual)
-                best_test_pred = list(all_test_pred)
+                best_test_actual = [float(x) for x in all_test_actual]
+                best_test_pred = [float(x) for x in all_test_pred]
 
             pbar.update(1)
 
@@ -507,7 +519,11 @@ if __name__ == "__main__":
 
     torch.save({
         'model_state_dict': best_model_state,
-        'metadata': best_metadata
+        'metadata': best_metadata,
+        # Save the CV test points for the best config so you can re-plot later
+        # without re-running the whole search.
+        'cv_test_actual': best_test_actual,
+        'cv_test_pred': best_test_pred,
     }, save_path)
 
     print(f"\nBest Model Saved: {save_path}")

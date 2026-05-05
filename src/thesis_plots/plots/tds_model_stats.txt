@@ -1,0 +1,14 @@
+pkl: BEST_TDS_fixed.pkl
+title: TDS
+architecture: Wide-768-256-1
+window: (0.2, 1.2)
+n_samples: 132
+stored_r2: 0.774439
+r2: 0.774439
+mae: 0.080218
+rmse: 0.117435
+bias(pred-actual): -0.006533
+residual_std: 0.117253
+actual_range: [0.650000, 2.120000]
+pred_range:   [0.615775, 1.899459]
+plot_pdf: scatter_TDS.pdf

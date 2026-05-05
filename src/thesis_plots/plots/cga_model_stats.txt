@@ -1,0 +1,8 @@
+pkl: BEST_HPLC_CGA_fixed.pkl
+title: CGA
+architecture: LargeBN-1024-512-1
+window: (0.0, 1.2)
+n_samples: 132
+r2: 0.859015
+mae: 70.476587
+plot_pdf: scatter_CGA.pdf

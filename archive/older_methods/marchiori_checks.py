@@ -13,6 +13,13 @@ from pathlib import Path
 
 from functools import cache
 
+# --- repo-root bootstrap (added by reorg) ---
+import sys as _sys
+_repo_root = Path(__file__).resolve().parents[2]
+if str(_repo_root) not in _sys.path:
+    _sys.path.insert(0, str(_repo_root))
+# --- end bootstrap ---
+
 from util import read_cv_data, read_cv_data_bins, setup_mplt
 
 #0.85 R2

@@ -1,3 +1,12 @@
+
+# --- repo-root bootstrap (added by reorg) ---
+import sys as _sys
+from pathlib import Path as _Path
+_repo_root = _Path(__file__).resolve().parents[2]
+if str(_repo_root) not in _sys.path:
+    _sys.path.insert(0, str(_repo_root))
+# --- end bootstrap ---
+
 from util import DATADIR, PLOTDIR, read_coffehub
 from nn_0_synthetic_data_gen import build_model_data
 from nn_1_train_model import CoffeeNetBase, train_coffeenet, evaluate_model
@@ -11,6 +20,7 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 import os
+import argparse
 
 # -------------------------------------------------------------------
 # CONFIGURATION
@@ -355,6 +365,24 @@ def get_network_architectures():
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser(
+        description=(
+            "Search best voltage window + network architecture for flavor prediction. "
+            "By default this runs multi-target prediction over all configured flavor columns. "
+            "Use --flavor-target to search for a single target column."
+        )
+    )
+    parser.add_argument(
+        "--flavor-target",
+        type=str,
+        default=None,
+        help=(
+            "Optional: run a single-target search for this flavor column (case-insensitive). "
+            "Example: --flavor-target Spice"
+        ),
+    )
+    args = parser.parse_args()
+
     # Multi-target flavor descriptor prediction (0–5 scale)
     # Note: if any of these columns are missing from the CoffeeHub sheet,
     # the script will automatically drop missing ones and warn.
@@ -372,29 +400,58 @@ if __name__ == "__main__":
         "Nuts",
         "Rustic",
     ]
-    target_name = "Flavors"
+
+    requested_target = args.flavor_target
+    if requested_target is not None:
+        requested_target = requested_target.strip()
+        if requested_target == "":
+            requested_target = None
 
     # Load once: full-voltage CV data (no normalization, no bins)
+    # For single-target search, only require that one column.
+    require_columns = FLAVOR_COLUMNS_REQUESTED
+    if requested_target is not None:
+        # We match case-insensitively against requested flavor names.
+        lowered = {c.lower(): c for c in FLAVOR_COLUMNS_REQUESTED}
+        if requested_target.lower() not in lowered:
+            raise ValueError(
+                "Unknown --flavor-target. Choose one of: "
+                + ", ".join(FLAVOR_COLUMNS_REQUESTED)
+            )
+        requested_target = lowered[requested_target.lower()]
+        require_columns = [requested_target]
+
+    target_name = "Flavors" if requested_target is None else f"Flavor_{requested_target}"
+    safe_target_name = target_name.replace(" ", "_")
+
     df_all = build_model_data(
         NORMALIZE=False,
         REDOX=False,
         USE_BINS=False,
         test_train_split=False,
-        require_columns=FLAVOR_COLUMNS_REQUESTED,
+        require_columns=require_columns,
     )
 
-    FLAVOR_COLUMNS = [c for c in FLAVOR_COLUMNS_REQUESTED if c in df_all.columns]
-    missing_cols = [c for c in FLAVOR_COLUMNS_REQUESTED if c not in df_all.columns]
-    if missing_cols:
-        print(
-            "Warning: missing some requested flavor columns in dataset: "
-            + ", ".join(missing_cols)
-        )
-    if len(FLAVOR_COLUMNS) == 0:
-        raise KeyError(
-            "None of the requested flavor columns were found in the dataset. "
-            "Available columns include: " + ", ".join(map(str, df_all.columns))
-        )
+    if requested_target is None:
+        FLAVOR_COLUMNS = [c for c in FLAVOR_COLUMNS_REQUESTED if c in df_all.columns]
+        missing_cols = [c for c in FLAVOR_COLUMNS_REQUESTED if c not in df_all.columns]
+        if missing_cols:
+            print(
+                "Warning: missing some requested flavor columns in dataset: "
+                + ", ".join(missing_cols)
+            )
+        if len(FLAVOR_COLUMNS) == 0:
+            raise KeyError(
+                "None of the requested flavor columns were found in the dataset. "
+                "Available columns include: " + ", ".join(map(str, df_all.columns))
+            )
+    else:
+        if requested_target not in df_all.columns:
+            raise KeyError(
+                f"Requested flavor target '{requested_target}' not found in dataset columns. "
+                "Available columns include: " + ", ".join(map(str, df_all.columns))
+            )
+        FLAVOR_COLUMNS = [requested_target]
 
     output_size = len(FLAVOR_COLUMNS)
 
@@ -571,7 +628,7 @@ if __name__ == "__main__":
     # ------------------------------------------------------------
 
     suffix = "_earlystop" if USE_EARLY_STOPPING else "_fixed"
-    save_path = DATADIR / f"BEST_{target_name}{suffix}.pkl"
+    save_path = DATADIR / f"BEST_{safe_target_name}{suffix}.pkl"
 
     # Optionally retrain a final model on all data (best window + architecture)
     final_artifacts = {}
@@ -661,12 +718,16 @@ if __name__ == "__main__":
                 f"{col}\n"
                 f"{arch_name}\n"
                 f"Window: {vmin}-{vmax} V\n"
-                f"CV Test R² = {test_r2:.4f} (Mean across targets = {best_score:.4f})"
+                + (
+                    f"CV Test R² = {test_r2:.4f}"
+                    if output_size == 1
+                    else f"CV Test R² = {test_r2:.4f} (Mean across targets = {best_score:.4f})"
+                )
             )
             plt.legend()
 
             safe_col = col.replace(" ", "_")
-            plot_path = PLOTDIR / f"BEST_{target_name}_{safe_col}{suffix}.png"
+            plot_path = PLOTDIR / f"BEST_{safe_target_name}_{safe_col}{suffix}.png"
             plt.savefig(plot_path, dpi=300)
             plt.close()
 

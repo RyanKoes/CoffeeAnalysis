@@ -1,3 +1,12 @@
+
+# --- repo-root bootstrap (added by reorg) ---
+import sys as _sys
+from pathlib import Path as _Path
+_repo_root = _Path(__file__).resolve().parents[2]
+if str(_repo_root) not in _sys.path:
+    _sys.path.insert(0, str(_repo_root))
+# --- end bootstrap ---
+
 from util import DATADIR, PLOTDIR, read_coffehub
 from nn_0_synthetic_data_gen import build_model_data
 from nn_1_train_model import CoffeeNetBase, train_coffeenet, evaluate_model
@@ -11,6 +20,7 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 import os
+import argparse
 
 # -------------------------------------------------------------------
 # CONFIGURATION
@@ -355,8 +365,26 @@ def get_network_architectures():
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser(
+        description=(
+            "Search best voltage window + network architecture for attribute prediction. "
+            "By default this runs multi-target prediction over all configured attribute columns. "
+            "Use --attribute-target to search for a single target column."
+        )
+    )
+    parser.add_argument(
+        "--attribute-target",
+        type=str,
+        default=None,
+        help=(
+            "Optional: run a single-target search for this attribute column (case-insensitive). "
+            "Example: --attribute-target Brightness"
+        ),
+    )
+    args = parser.parse_args()
+
     # Multi-target attribute prediction
-    ATTRIBUTE_COLUMNS = [
+    ATTRIBUTE_COLUMNS_REQUESTED = [
         "Brightness",
         "Flavor",
         "Body",
@@ -368,17 +396,30 @@ if __name__ == "__main__":
         "Fragrance",
         "Wet Aroma",
     ]
-    target_name = "Attributes"
-    output_size = len(ATTRIBUTE_COLUMNS)
+
+    requested_target = args.attribute_target
+    if requested_target is not None:
+        requested_target = requested_target.strip()
+        if requested_target == "":
+            requested_target = None
+
+    require_columns = ATTRIBUTE_COLUMNS_REQUESTED
+    if requested_target is not None:
+        lowered = {c.lower(): c for c in ATTRIBUTE_COLUMNS_REQUESTED}
+        if requested_target.lower() not in lowered:
+            raise ValueError(
+                "Unknown --attribute-target. Choose one of: "
+                + ", ".join(ATTRIBUTE_COLUMNS_REQUESTED)
+            )
+        requested_target = lowered[requested_target.lower()]
+        require_columns = [requested_target]
+
+    target_name = "Attributes" if requested_target is None else f"Attribute_{requested_target}"
+    safe_target_name = target_name.replace(" ", "_")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type == "cpu":
         print("Warning: CUDA not available, using CPU. This search may be very slow.")
-
-    print(
-        f"\nSearching best window + architecture for {target_name} "
-        f"({output_size} targets) on {device.type}\n"
-    )
 
     # Load once: full-voltage CV data (no normalization, no bins)
     df_all = build_model_data(
@@ -386,13 +427,30 @@ if __name__ == "__main__":
         REDOX=False,
         USE_BINS=False,
         test_train_split=False,
+        require_columns=require_columns,
     )
 
-    missing_cols = [c for c in ATTRIBUTE_COLUMNS if c not in df_all.columns]
-    if missing_cols:
-        raise KeyError(
-            "Missing required attribute columns in dataset: " + ", ".join(missing_cols)
-        )
+    if requested_target is None:
+        missing_cols = [c for c in ATTRIBUTE_COLUMNS_REQUESTED if c not in df_all.columns]
+        if missing_cols:
+            raise KeyError(
+                "Missing required attribute columns in dataset: " + ", ".join(missing_cols)
+            )
+        ATTRIBUTE_COLUMNS = ATTRIBUTE_COLUMNS_REQUESTED
+    else:
+        if requested_target not in df_all.columns:
+            raise KeyError(
+                f"Requested attribute target '{requested_target}' not found in dataset columns. "
+                "Available columns include: " + ", ".join(map(str, df_all.columns))
+            )
+        ATTRIBUTE_COLUMNS = [requested_target]
+
+    output_size = len(ATTRIBUTE_COLUMNS)
+
+    print(
+        f"\nSearching best window + architecture for {target_name} "
+        f"({output_size} targets) on {device.type}\n"
+    )
 
     # Drop samples missing any target attribute
     n_before = len(df_all)
@@ -544,7 +602,7 @@ if __name__ == "__main__":
     # ------------------------------------------------------------
 
     suffix = "_earlystop" if USE_EARLY_STOPPING else "_fixed"
-    save_path = DATADIR / f"BEST_{target_name}{suffix}.pkl"
+    save_path = DATADIR / f"BEST_{safe_target_name}{suffix}.pkl"
 
     # Optionally retrain a final model on all data (best window + architecture)
     final_artifacts = {}
@@ -634,12 +692,16 @@ if __name__ == "__main__":
                 f"{col}\n"
                 f"{arch_name}\n"
                 f"Window: {vmin}-{vmax} V\n"
-                f"CV Test R² = {test_r2:.4f} (Mean across targets = {best_score:.4f})"
+                + (
+                    f"CV Test R² = {test_r2:.4f}"
+                    if output_size == 1
+                    else f"CV Test R² = {test_r2:.4f} (Mean across targets = {best_score:.4f})"
+                )
             )
             plt.legend()
 
             safe_col = col.replace(" ", "_")
-            plot_path = PLOTDIR / f"BEST_{target_name}_{safe_col}{suffix}.png"
+            plot_path = PLOTDIR / f"BEST_{safe_target_name}_{safe_col}{suffix}.png"
             plt.savefig(plot_path, dpi=300)
             plt.close()
 
