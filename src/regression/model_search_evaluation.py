@@ -17,7 +17,7 @@ from sklearn.metrics import r2_score, mean_absolute_error
 from sklearn.preprocessing import StandardScaler
 
 from util import DATADIR, PLOTDIR, setup_mplt
-from nn_1_train_model import CoffeeNetBase, train_coffeenet, evaluate_model
+#from nn_1_train_model import CoffeeNetBase, train_coffeenet, evaluate_model
 
 
 def load_results(target: str):

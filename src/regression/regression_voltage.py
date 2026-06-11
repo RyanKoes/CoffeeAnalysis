@@ -30,11 +30,13 @@ if UTIL_DIR not in sys.path:
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from nn_0_synthetic_data_gen import build_model_data
+
+from util import setup_mplt, build_model_data, DATADIR, PLOTDIR
+
+
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_absolute_error
 
-from util import setup_mplt, DATADIR, PLOTDIR
 
 # Clear cache to ensure fresh data load
 cache_file = DATADIR / 'raw_data_cache.pkl'

@@ -352,6 +352,162 @@ def read_cv_data_bins(filename, normalize = None,
 
     return s, df['i']
 
+# moved from NN to here for reorg purposes
+def build_model_data(NORMALIZE, BINS=64, REDOX=False , test_train_split = True, **kwargs):
+
+    require_columns = kwargs.pop('require_columns', None)
+    if require_columns is not None:
+        # read_coffehub is memoized; ensure hashable for caching
+        require_columns = tuple(require_columns)
+
+    def _parse_roast_value(roast_value):
+        """Parse the CoffeeHub 'Roast' field into a float.
+
+        In the CoffeeHub sheet this is typically a percent-like string
+        (e.g. '13.80%' or '14.8%'). We store the numeric value (e.g. 13.8).
+        """
+        if roast_value is None or (isinstance(roast_value, float) and np.isnan(roast_value)):
+            return np.nan
+        if isinstance(roast_value, (int, float, np.number)):
+            return float(roast_value)
+        roast_str = str(roast_value).strip()
+        if roast_str.endswith('%'):
+            roast_str = roast_str[:-1].strip()
+        if roast_str == "":
+            return np.nan
+        return float(roast_str)
+
+    def _parse_optional_float(value):
+        """Best-effort float parsing.
+
+        Handles duplicate column labels in CoffeeHub exports where
+        `row.get(label)` may return a Series. In that case, returns the first
+        non-NaN value that can be parsed as float.
+        """
+        if value is None:
+            return np.nan
+        if isinstance(value, float) and np.isnan(value):
+            return np.nan
+
+        # If the sheet contains duplicate column labels, pandas Series.get()
+        # can return a Series instead of a scalar.
+        if isinstance(value, pd.Series):
+            for v in value.values.tolist():
+                parsed = _parse_optional_float(v)
+                if not (isinstance(parsed, float) and np.isnan(parsed)):
+                    return parsed
+            return np.nan
+
+        if isinstance(value, (list, tuple, np.ndarray)):
+            for v in list(value):
+                parsed = _parse_optional_float(v)
+                if not (isinstance(parsed, float) and np.isnan(parsed)):
+                    return parsed
+            return np.nan
+
+        if isinstance(value, str):
+            s = value.strip()
+            if s == "" or s.lower() in {"na", "nan", "none", "null"}:
+                return np.nan
+            try:
+                return float(s)
+            except ValueError:
+                return np.nan
+
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return np.nan
+
+    train = """Alabaster Colombian Decaf
+Alabaster Colombian Decaf + 200 ppm Caf
+Alabaster Colombian Decaf + 400 ppm Caf
+Alabaster Colombian Decaf + 600 ppm Caf
+Alabaster Colombian Decaf + 800 ppm Caf
+FRC Decaf Colombian, med roast IH
+FRC Swiss Water Decaf Colombian, med roast IH
+FRC Sumatra medium roast
+FRC Kenya AA, medium roast IH
+FRC ROBUSTA Brazil, medium roast IH
+FRC Brazil Cerrado, medium roast IH
+FRC Brazil Cerrado, medium roast IH- High BR
+FRC Brazil Cerrado, medium roast IH- High BR, 2x dilute""".split('\n')
+
+    df = read_coffehub(require_columns=require_columns)
+
+    attribute_cols = [
+        "Brightness",
+        "Flavor",
+        "Body",
+        "Finish",
+        "Sweetness",
+        "Clean Cup",
+        "Complexity",
+        "Uniformity",
+        "Fragrance",
+        "Wet Aroma",
+    ]
+
+    flavor_cols = [
+        'Spice',
+        'Body',
+        'Floral',
+        'Honey',
+        'Sugars',
+        'Caramel',
+        'Fruits',
+        'Citrus',
+        'Berry',
+        'Cocoa',
+        'Nuts',
+        'Rustic',
+    ]
+
+    results = []
+    for i, row in df.iterrows():
+        roast_level = _parse_roast_value(row.get('Roast'))
+
+        # Pull attributes + flavor descriptor scores if present (store as float where possible)
+        attrs = {}
+        for col in dict.fromkeys(attribute_cols + flavor_cols):
+            if col in row.index:
+                attrs[col] = _parse_optional_float(row.get(col))
+
+        for k in range(1, 4):
+            try:
+                bins, raw = read_cv_data_bins(row[f'cv_data{k}'],
+                                                     redox= REDOX,
+                                                     normalize=NORMALIZE,
+                                                     num_bins=BINS)
+                results.append(
+                    {
+                        'Sample Name': f"{row['Name']} ({k})",
+                        'Coffee Name': row['Name'],
+                        'Roast': roast_level,
+                        'HPLC_Caff': row[f'HPLC_Caff_{k}'],
+                        'HPLC_CGA': row[f'HPLC_CGA_{k}'],
+                        'TDS': row[f'TDS_{k}'],
+                        'cv_bins': bins,
+                        'cv_raw': raw,
+                        **attrs,
+                    }
+                )
+            except Exception as e:
+                pass
+                #print(f"Skipping {row['Name']} ({k}) due to error processing {row.get(f'cv_data{k}')}: {e}")
+
+    df = pd.DataFrame(results)
+
+    df.sort_values(by='HPLC_Caff', inplace=True)
+
+    if test_train_split:
+
+        train = df['Coffee Name'].isin(train)
+        return  df[train], df[~train]
+
+    else:
+        return df
+
 
 if __name__ == "__main__":
     setup_mplt()
